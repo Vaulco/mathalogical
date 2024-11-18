@@ -4,18 +4,18 @@ import type { NextRequest } from 'next/server'
 export async function middleware(request: NextRequest) {
   try {
     // Ensure ALLOWED_EMAIL is set
-    const allowedEmail = process.env.ALLOWED_EMAIL
+    const allowedEmail = process.env.NEXT_PUBLIC_ALLOWED_EMAIL
 
     // Get the session cookie
     const session = request.cookies.get('session')?.value
 
     // If there's no session and trying to access /new, redirect to home
-    if (!session && request.nextUrl.pathname.startsWith('/new')) {
+    if (!session && request.nextUrl.pathname.startsWith('/post')) {
       return NextResponse.redirect(new URL('/', request.url))
     }
 
     // If there is a session and trying to access /new, verify the session
-    if (session && request.nextUrl.pathname.startsWith('/new')) {
+    if (session && request.nextUrl.pathname.startsWith('/post')) {
       try {
         // Attempt to parse the session token
         const tokenData = JSON.parse(Buffer.from(session.split('.')[1], 'base64').toString())
@@ -48,5 +48,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: '/new/:path*'
+  matcher: '/post/:path*'
 }
