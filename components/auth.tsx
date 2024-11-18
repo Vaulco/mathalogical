@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { getAuth, onAuthStateChanged, User, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { app } from '@/lib/firebase-config';
 
@@ -30,6 +31,7 @@ const clearSession = async () => {
 };
 
 export const AuthComponent = () => {
+  const router = useRouter(); // Add router
   const [user, setUser] = useState<User | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -83,6 +85,10 @@ export const AuthComponent = () => {
     }
   };
   
+  const handleNewPost = () => {
+    router.push('/post');
+    setIsOpen(false);
+  };
 
   const menuItems = user ? [
     
@@ -93,7 +99,7 @@ export const AuthComponent = () => {
     },
     ...(showNewButton ? [{
       label: 'New Post',
-      onClick: () => {/* Add new handler */},
+      onClick: handleNewPost,
       className: 'font-medium text-gray-700 hover:bg-gray-50'
     }] : []),
     {
