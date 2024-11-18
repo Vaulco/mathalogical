@@ -14,7 +14,6 @@ export const AuthComponent = () => {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      // Check if click is outside both the avatar and the dropdown menu
       if (
         menuRef.current && 
         avatarRef.current && 
@@ -25,10 +24,7 @@ export const AuthComponent = () => {
       }
     };
 
-    // Add event listener
     document.addEventListener('mousedown', handleClickOutside);
-
-    // Cleanup
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
@@ -49,14 +45,14 @@ export const AuthComponent = () => {
       await signInWithGoogle();
       setError('');
       setIsOpen(false);
-    } catch (error) {
+    } catch (err) {
+      // Explicitly use error state
       setError('Only admin can login to this application');
     }
   };
 
   return (
     <div className="absolute top-10 right-10">
-      {/* Avatar Button */}
       <div 
         ref={avatarRef}
         onClick={() => setIsOpen(!isOpen)}
@@ -73,7 +69,6 @@ export const AuthComponent = () => {
         </div>
       </div>
 
-      {/* Dropdown Menu */}
       {isOpen && (
         <div 
           ref={menuRef}
@@ -85,7 +80,7 @@ export const AuthComponent = () => {
                 handleSignOut();
                 setIsOpen(false);
               }}
-              className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-50 transition-colors "
+              className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-50 transition-colors"
             >
               Sign Out
             </button>
@@ -93,10 +88,11 @@ export const AuthComponent = () => {
             <>
               <button
                 onClick={handleLogin}
-                className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-50 "
+                className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-50"
               >
                 Login
               </button>
+              {/* Error message is used here */}
               {error && (
                 <div className="px-4 py-2 text-red-500 text-sm">
                   {error}
@@ -105,13 +101,12 @@ export const AuthComponent = () => {
             </>
           )}
           <button
-                onClick={handleLogin}
-                className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-50"
-              >
-                Settings
-              </button>
+            onClick={handleLogin}
+            className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-50"
+          >
+            Settings
+          </button>
         </div>
-        
       )}
     </div>
   );
