@@ -3,6 +3,9 @@ import type { NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
   try {
+    // Ensure ALLOWED_EMAIL is set
+    const allowedEmail = process.env.ALLOWED_EMAIL
+
     // Get the session cookie
     const session = request.cookies.get('session')?.value
 
@@ -24,8 +27,8 @@ export async function middleware(request: NextRequest) {
           return response
         }
 
-        // Check if the email matches the allowed email
-        if (tokenData.email !== 'dniemtsov@gmail.com') {
+        // Check if the email matches the allowed email from environment variables
+        if (tokenData.email !== allowedEmail) {
           return NextResponse.redirect(new URL('/', request.url))
         }
       } catch (error) {
