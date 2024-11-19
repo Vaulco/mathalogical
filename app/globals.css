@@ -1,6 +1,8 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
 
 body {
   height: 100vh;
@@ -8,6 +10,16 @@ body {
   position: relative;
   width: 100%;
   justify-content: center;
-
+  align-items: center;
 }
 
+
+::selection {
+  background-color: #e5e7eb; /* Light blue */
+  color: #6b7280; /* Dark gray */
+}
+
+::-moz-selection {
+  background-color: #e5e7eb; /* Light blue */
+  color: #6b7280; /* Dark gray */
+}

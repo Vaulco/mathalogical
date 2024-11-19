@@ -8,33 +8,8 @@ import { app } from '@/lib/firebase-config';
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 
-interface AuthComponentProps {
-  settings?: boolean;
-  newPost?: boolean;
-  profile?: boolean;
-}
-
-// Helper functions for session management
-const setSession = async (token: string) => {
-  await fetch('/api/auth/session', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ token }),
-  });
-};
-
-const clearSession = async () => {
-  await fetch('/api/auth/session', {
-    method: 'DELETE',
-  });
-};
-
-export const AuthComponent: React.FC<AuthComponentProps> = ({ 
-  settings = false, 
-  newPost = false, 
-  profile = false 
+export const AuthComponent: React.FC<{ settings?: boolean; newPost?: boolean; profile?: boolean }> = ({ 
+  settings = false, newPost = false, profile = false 
 }) => {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
@@ -43,16 +18,12 @@ export const AuthComponent: React.FC<AuthComponentProps> = ({
   const avatarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-    });
-    
+    const unsubscribe = onAuthStateChanged(auth, setUser);
     const handleClick = (e: MouseEvent) => {
       if (!menuRef.current?.contains(e.target as Node) && !avatarRef.current?.contains(e.target as Node)) {
         setIsOpen(false);
       }
     };
-    
     document.addEventListener('mousedown', handleClick);
     return () => {
       document.removeEventListener('mousedown', handleClick);
@@ -60,89 +31,55 @@ export const AuthComponent: React.FC<AuthComponentProps> = ({
     };
   }, []);
 
-  const handleLogin = async () => {
+  const handleAuth = async (isLogin: boolean) => {
     try {
-      const result = await signInWithPopup(auth, provider);
-      if (result.user) {
-        const token = await result.user.getIdToken();
-        await setSession(token);
-        setIsOpen(false);
+      if (isLogin) {
+        const result = await signInWithPopup(auth, provider);
+        if (result.user) {
+          await fetch('/api/auth/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: await result.user.getIdToken() }),
+          });
+        }
+      } else {
+        await signOut(auth);
+        await fetch('/api/auth/session', { method: 'DELETE' });
       }
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      await clearSession();
       setIsOpen(false);
     } catch (error) {
       console.error(error);
     }
   };
 
-  // Predefined menu items
-  const availableMenuItems = {
-    profile: {
-      label: 'Profile',
-      onClick: () => {
-        router.push('/profile');
-        setIsOpen(false);
-      },
-      className: 'font-medium text-gray-800 hover:bg-gray-50'
-    },
-    newPost: {
-      label: 'New Post',
-      onClick: () => {
-        router.push('/post');
-        setIsOpen(false);
-      },
-      className: 'font-medium text-gray-700 hover:bg-gray-50'
-    },
-    settings: {
-      label: 'Settings',
-      onClick: () => {
-        router.push('/settings');
-        setIsOpen(false);
-      },
-      className: 'text-gray-700 hover:bg-gray-50'
-    }
-  };
-
-  // Get active menu items based on props and login state
+  const defaultStyle = 'w-full px-4 py-2 text-left transition-colors hover:bg-gray-50';
   const getMenuItems = () => {
+    const items = [];
+    
     if (user) {
-      const items = [];
+      if (profile) items.push({ label: 'Profile', onClick: () => router.push('/profile') });
       
-      if (profile) items.push(availableMenuItems.profile);
-      if (newPost) items.push(availableMenuItems.newPost);
-      if (settings) items.push(availableMenuItems.settings);
+      // Only show New Post if user email matches ALLOWED_EMAIL
+      if (newPost && user.email === process.env.NEXT_PUBLIC_ALLOWED_EMAIL) {
+        items.push({ label: 'New Post', onClick: () => router.push('/post') });
+      }
       
-      // Always add logout at the end
+      if (settings) items.push({ label: 'Settings', onClick: () => router.push('/settings') });
       items.push({
         label: 'Sign Out',
-        onClick: handleLogout,
-        className: 'text-gray-500 hover:bg-gray-50 border-t'
+        onClick: () => handleAuth(false),
+        className: `${defaultStyle} text-gray-500 border-t`
       });
-      
-      return items;
     } else {
-      const items = [];
-      
-      // Always add login first
       items.push({
         label: 'Login',
-        onClick: handleLogin,
-        className: 'font-medium text-gray-800 hover:bg-gray-50'
+        onClick: () => handleAuth(true),
+        className: `${defaultStyle} font-medium text-gray-800`
       });
-      
-      // Only add settings when logged out if enabled
-      if (settings) items.push(availableMenuItems.settings);
-      
-      return items;
+      if (settings) items.push({ label: 'Settings', onClick: () => router.push('/settings') });
     }
+
+    return items;
   };
 
   return (
@@ -160,18 +97,19 @@ export const AuthComponent: React.FC<AuthComponentProps> = ({
       </div>
       
       {isOpen && (
-        <div 
-          ref={menuRef} 
-          className="absolute right-0 mt-2 w-52 bg-white rounded-lg shadow-lg overflow-hidden z-50 border border-gray-200"
-        >
+        <div ref={menuRef} className="absolute right-0  mt-2 w-52 bg-white rounded-lg shadow-md overflow-hidden z-50">
           {getMenuItems().map((item, index) => (
             <button
               key={index}
-              onClick={item.onClick}
-              className={`w-full px-4 py-2 text-left transition-colors ${item.className}`}
+              onClick={() => {
+                item.onClick();
+                setIsOpen(false);
+              }}
+              className={item.className || defaultStyle}
             >
               {item.label}
             </button>
+            
           ))}
         </div>
       )}
