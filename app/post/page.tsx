@@ -1,39 +1,33 @@
 'use client'
-import React from 'react'
-import { useEffect, useState, ChangeEvent, FocusEvent } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getAuth, onAuthStateChanged } from 'firebase/auth'
 import { app } from '@/lib/firebase-config'
 import { AuthComponent } from '@/components/Authmenu'
-import { WritingEditor, fontFamily } from '@/components/writingEditor'
-
-function useAuthProtection() {
-  const router = useRouter()
-  
-  useEffect(() => {
-    const auth = getAuth(app)
-    
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        router.push('/')
-      }
-    })
-
-    return () => unsubscribe()
-  }, [router])
-}
+import { WritingEditor } from '@/components/writingEditor'
 
 export default function NewPage() {
-  useAuthProtection()
+  const router = useRouter()
   const [title, setTitle] = useState("Untitled")
   const [content, setContent] = useState("")
+  const [lastValidTitle, setLastValidTitle] = useState("Untitled")
 
-  const handleFocus = (e: FocusEvent<HTMLInputElement>) => {
-    e.target.select()
-  }
+  useEffect(() => {
+    const auth = getAuth(app)
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) router.push('/')
+    })
+    return () => unsubscribe()
+  }, [router])
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setTitle(e.target.value)
+  const handleTitleInput = {
+    focus: (e: React.FocusEvent<HTMLInputElement>) => e.target.select(),
+    change: (e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value),
+    blur: (e: React.FocusEvent<HTMLInputElement>) => {
+      const trimmedValue = e.target.value.trim()
+      setTitle(trimmedValue === '' ? lastValidTitle : trimmedValue)
+      if (trimmedValue !== '') setLastValidTitle(trimmedValue)
+    }
   }
 
   return (
@@ -50,12 +44,10 @@ export default function NewPage() {
         <input
           type="text"
           value={title}
-          onChange={handleChange}
-          onFocus={handleFocus}
+          onChange={handleTitleInput.change}
+          onFocus={handleTitleInput.focus}
+          onBlur={handleTitleInput.blur}
           className="absolute left-10 top-[46px] leading-[1px] text-[19px] text-gray-600 bg-transparent outline-none"
-          style={{
-            fontFamily: fontFamily
-          }}
         />
       </div>
     </>

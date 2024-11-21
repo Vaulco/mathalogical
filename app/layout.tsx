@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 
+const fontFamily = "Katex_Main";
+
 const geistSans = localFont({
   src: "./fonts/cmunrm.ttf",
   variable: "--font-cmu-serif-roman",
@@ -30,6 +32,7 @@ export default function RootLayout({
       </head>
       <body
         className={`${geistSans.variable} ${bold.variable} bg-[#f4f4f4] text-gray-700`}
+        style={{fontFamily: fontFamily}}
       >
         {children}
       </body>
