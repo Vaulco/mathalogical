@@ -83,7 +83,7 @@ export const AuthComponent: React.FC<{ settings?: boolean; newPost?: boolean; pr
   };
 
   return (
-    <div className="absolute top-3 right-0">
+    <div className="absolute top-3 right-3">
       <div ref={avatarRef} onClick={() => setIsOpen(!isOpen)} className="cursor-pointer">
         <div className="rounded-full overflow-hidden">
           <Image 

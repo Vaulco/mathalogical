@@ -22,9 +22,9 @@ interface DocumentPart {
 
 export default function NewPage() {
   const router = useRouter()
-  const [title, setTitle] = useState("Untitled")
+  const [title, setTitle] = useState("Untitled Document")
   const [content, setContent] = useState("")
-  const [lastValidTitle, setLastValidTitle] = useState("Untitled")
+  const [lastValidTitle, setLastValidTitle] = useState("Untitled Document")
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
@@ -113,7 +113,7 @@ export default function NewPage() {
         />
       </div>
 
-      <div className="relative w-full h-full max-h-screen max-w-[770px] flex flex-col items-center justify-center">
+      <div className="relative w-full h-full max-h-screen max-w-[770px] flex flex-col items-center justify-center p-3">
         <AuthComponent settings profile />
         <input
           type="text"
@@ -121,15 +121,9 @@ export default function NewPage() {
           onChange={handleTitleInput.change}
           onFocus={handleTitleInput.focus}
           onBlur={handleTitleInput.blur}
-          className="absolute left-0 top-[17px] leading-[1px] text-[19px] text-gray-600 bg-transparent outline-none"
+          className="absolute left-3 top-[17px] leading-[1px] text-[19px] text-gray-600 bg-transparent outline-none"
         />
-        <button
-          onClick={handleSave}
-          disabled={isSaving}
-          className="absolute right-[45px] h-[33px] top-3 px-4 py-1 bg-white text-[15px] text-gray-700 rounded-lg transition-colors "
-        >
-          {isSaving ? 'Saving...' : 'Save'}
-        </button>
+        
       </div>
     </>
   )
