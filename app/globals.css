@@ -20,6 +20,9 @@ p::-webkit-scrollbar {
   display: none; /* Chrome, Safari, and newer versions of Edge */
 }
 
+div {
+  font-size: 15px;
+}
 
 
 ::selection {

@@ -52,7 +52,7 @@ export const AuthComponent: React.FC<{ settings?: boolean; newPost?: boolean; pr
     }
   };
 
-  const defaultStyle = 'w-full px-4 py-2 text-left transition-colors hover:bg-gray-50';
+  const defaultStyle = 'w-full px-3 py-[7px] text-left transition-colors hover:bg-gray-50 text-[15px]';
   const getMenuItems = () => {
     const items = [];
     
@@ -74,7 +74,7 @@ export const AuthComponent: React.FC<{ settings?: boolean; newPost?: boolean; pr
       items.push({
         label: 'Login',
         onClick: () => handleAuth(true),
-        className: `${defaultStyle} font-medium text-gray-800`
+        className: `${defaultStyle}`
       });
       if (settings) items.push({ label: 'Settings', onClick: () => router.push('/settings') });
     }
@@ -83,7 +83,7 @@ export const AuthComponent: React.FC<{ settings?: boolean; newPost?: boolean; pr
   };
 
   return (
-    <div className="absolute top-10 right-10">
+    <div className="absolute top-3 right-0">
       <div ref={avatarRef} onClick={() => setIsOpen(!isOpen)} className="cursor-pointer">
         <div className="rounded-full overflow-hidden">
           <Image 
@@ -97,7 +97,7 @@ export const AuthComponent: React.FC<{ settings?: boolean; newPost?: boolean; pr
       </div>
       
       {isOpen && (
-        <div ref={menuRef} className="absolute right-0  mt-2 w-52 bg-white rounded-lg shadow-md overflow-hidden z-50">
+        <div ref={menuRef} className="absolute -right-2  mt-2 w-44 bg-white rounded-lg shadow-md overflow-hidden z-50">
           {getMenuItems().map((item, index) => (
             <button
               key={index}
