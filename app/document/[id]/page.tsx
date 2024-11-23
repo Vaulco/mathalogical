@@ -1,5 +1,4 @@
 'use client'
-
 import React, { useEffect, useState } from 'react'
 import { getFirestore, collection, query, getDocs, orderBy } from 'firebase/firestore'
 import { getAuth, onAuthStateChanged } from 'firebase/auth'
@@ -21,10 +20,11 @@ interface PageParams {
 
 export default function DocumentPage({ params: paramsPromise }: { params: Promise<PageParams> }) {
   const router = useRouter()
-  const [document, setDocument] = useState<{ title: string; content: string } | null>(null)
+  const [document, setDocument] = useState<{ title: string; content: string; userId: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [authChecked, setAuthChecked] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const params = React.use(paramsPromise)
 
   useEffect(() => {
@@ -36,6 +36,8 @@ export default function DocumentPage({ params: paramsPromise }: { params: Promis
         router.push('/')
         return
       }
+      
+      setCurrentUserId(user.uid)
 
       const fetchDocument = async () => {
         try {
@@ -55,26 +57,17 @@ export default function DocumentPage({ params: paramsPromise }: { params: Promis
           }
 
           const firstDoc = querySnapshot.docs[0].data() as DocumentPart
-          
-          if (firstDoc.userId !== user.uid) {
-            setError('Access denied')
-            setLoading(false)
-            return
-          }
-
           let fullContent = ''
-          let documentTitle = ''
           
           querySnapshot.forEach((doc) => {
             const data = doc.data() as DocumentPart
-            // Add a newline between parts to maintain proper formatting
             fullContent += (fullContent ? '\n\n' : '') + data.content
-            if (!documentTitle) documentTitle = data.title
           })
 
           setDocument({
-            title: documentTitle,
-            content: fullContent.trim()
+            title: firstDoc.title,
+            content: fullContent.trim(),
+            userId: firstDoc.userId // Store the document owner's ID
           })
         } catch (err) {
           console.error('Error fetching document:', err)
@@ -113,20 +106,31 @@ export default function DocumentPage({ params: paramsPromise }: { params: Promis
   }
 
   return (
-    <div className="relative w-full h-full max-h-screen max-w-[1200px] pl-10 pr-10 flex flex-col items-center justify-center">
-      
-      <div className='w-[calc(100%-77px)] h-[90px] bg-[#f4f4f4] absolute top-0 border-b-gray-600 border-b-[1px] flex items-center'>
-        <h1 className="text-[19px] absolute">{document.title}</h1>
+    <>
+     
         
-      </div>
-      <AuthComponent settings profile  />
-      <div className="max-w-4xl mx-auto p-8 absolute">
-        <ContentFormatter 
+     <h1 className="top-[15px] left-4 absolute text-[19px] text-gray-600 mb-2 max-w-[300px] truncate">Mathalogical</h1>
+      <AuthComponent 
+        settings 
+        profile 
+        documentId={currentUserId === document.userId ? params.id : undefined} // Only show edit option for document owner
+      />
+      
+      <div className="w-full h-[calc(100%-57px)] bottom-0 border-t border-gray-300 bg-white bg-opacity-0 fixed editor-container overflow-x-auto flex justify-center items-center">
+        <div className="px-10 w-full flex justify-center items-center">
+        <div className="absolute top-0 w-[650px] mx-auto mt-8 mb-32 px-10">
+        <h1 className=" text-[23px] text-gray-600 bg-transparent border-b border-gray-300 mb-2">{document.title}</h1>
+        <ContentFormatter
           content={document.content}
           inlineMathSize="text-sm"
           displayMathSize="text-base"
+variant="document"
         />
-      </div>
-    </div>
+        </div>
+        </div>
+        </div>
+      
+      </>
+    
   )
 }

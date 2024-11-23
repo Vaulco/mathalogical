@@ -23,7 +23,9 @@ p::-webkit-scrollbar {
 div {
   font-size: 15px;
 }
-
+h1::-webkit-scrollbar {
+display: none;
+}
 
 ::selection {
   background-color: #e5e7eb; /* Light blue */

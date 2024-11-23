@@ -28,14 +28,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" />
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" />
       </head>
       <body
         className={`${geistSans.variable} ${bold.variable} bg-[#f4f4f4] text-gray-700`}
-        style={{fontFamily: fontFamily}}
-      >
-        {children}
-      </body>
+        style={{ fontFamily: fontFamily }}
+      ><div className="relative w-full h-full max-h-screen max-w-[770px] flex flex-col items-center justify-center px-3">
+          {children}
+
+        </div>      </body>
     </html>
   );
 }

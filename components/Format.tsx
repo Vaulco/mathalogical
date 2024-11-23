@@ -4,21 +4,53 @@ import { Clipboard, Check } from 'lucide-react';
 
 type HeadingLevel = 1 | 2 | 3;
 
+interface StyleVariants {
+  pre: string;
+  inlineCode: string;
+  blockquote: string;
+  copyButton: string;
+  copyButtonHover: string;
+  copyButtonSuccess: string;
+}
+
 interface ContentFormatterProps {
   content: string;
   inlineMathSize?: string;
   displayMathSize?: string;
   mathTextSize?: string;
+  variant?: 'post' | 'document';
 }
+
+const styleVariants: Record<'post' | 'document', StyleVariants> = {
+  post: {
+    pre: "text-[15px] bg-gray-100 relative rounded-lg font-[var(--font-cmu-serif-roman)] min-h-[40px] flex items-center my-3",
+    inlineCode: "bg-gray-100 p-1 rounded",
+    blockquote: "border-l-4 border-gray-300 pl-4 my-4",
+    copyButton: "copy-button p-2 rounded-md transition-all duration-200 absolute right-[7px] flex justify-center items-center text-sm",
+    copyButtonHover: "hover:bg-white hover:border-gray-300",
+    copyButtonSuccess: "bg-gray-100 text-green-600"
+  },
+  document: {
+    pre: "text-[15px] bg-white relative rounded-lg font-[var(--font-cmu-serif-roman)] min-h-[40px] flex items-center my-3",
+    inlineCode: "p-1 rounded bg-white text-gray-500",
+    blockquote: "border-l-4 pl-4 my-4",
+    copyButton: "copy-button p-2 rounded-md transition-all duration-200 absolute right-[7px] flex justify-center items-center text-sm",
+    copyButtonHover: "hover:bg-gray-100 hover:border-gray-300",
+    copyButtonSuccess: "bg-gray-100 text-green-600"
+  }
+};
 
 const ContentFormatter: React.FC<ContentFormatterProps> = ({ 
   content, 
   inlineMathSize = 'text-[15px]',
   displayMathSize = 'text-base',
-  mathTextSize = 'text-[15px]'
+  mathTextSize = 'text-[15px]',
+  variant = 'post'
 }) => {
   const [copyStates, setCopyStates] = useState<Record<string, boolean>>({});
   const contentRef = useRef<HTMLDivElement>(null);
+  const [hoveredButton, setHoveredButton] = useState<string | null>(null);
+  const styles = styleVariants[variant];
 
   const sizeClasses: Record<HeadingLevel, string> = {
     1: 'text-[25px] mt-0 mb-0 text-gray-800',
@@ -62,12 +94,11 @@ const ContentFormatter: React.FC<ContentFormatterProps> = ({
     text = text.replace(displayMathRegex, (match, latex) => {
       try {
         const isNumbered = latex.includes('\\begin{equation}') && latex.includes('\\end{equation}');
-        // Replace \text{...} with \normaltext{...} to apply custom styling
         const processedLatex = latex.replace(/\\text\{([^}]*)\}/g, '\\normaltext{$1}');
         const rendered = katex.renderToString(processedLatex.trim(), { 
           displayMode: true,
           macros,
-          trust: true // Required for HTML classes
+          trust: true
         });
         
         return `<div class="equation-block relative ${displayMathSize}"${
@@ -83,12 +114,11 @@ const ContentFormatter: React.FC<ContentFormatterProps> = ({
     const inlineMathRegex = /\$([^\$]+?)\$/g;
     return text.replace(inlineMathRegex, (match, latex) => {
       try {
-        // Replace \text{...} with \normaltext{...} to apply custom styling
         const processedLatex = latex.replace(/\\text\{([^}]*)\}/g, '\\normaltext{$1}');
         const rendered = katex.renderToString(processedLatex.trim(), { 
           displayMode: false,
           macros,
-          trust: true // Required for HTML classes
+          trust: true
         });
         return `<span class="${inlineMathSize}">${rendered}</span>`;
       } catch (error) {
@@ -99,7 +129,7 @@ const ContentFormatter: React.FC<ContentFormatterProps> = ({
   };
 
   const createEquationLink = (number: string) => {
-    return `<span class="equation-ref cursor-pointer text-blue-500 hover:underline" data-ref="${number}">(${number})</span>`;
+    return `<span class="equation-ref cursor-pointer hover:underline" data-ref="${number}">(${number})</span>`;
   };
 
   const processEquationReferences = (text: string) => {
@@ -148,8 +178,8 @@ const ContentFormatter: React.FC<ContentFormatterProps> = ({
       '^-\\s(.+)$': '<div style="text-indent: -0.9em; padding-left: 1.9em;">• &nbsp;$1</div>',
       '^(\\d+)\\.\\s(.+)$': '<li value="$1" class="pl-1">$2</li>',
       '((?:<li.*>.*</li>\\n?)+)': '<ol class="list-decimal ml-4 my-0">$1</ol>',
-      '^>\\s(.+)$': '<blockquote class="border-l-4 border-gray-300 pl-4 my-4">$1</blockquote>',
-      '`(.+?)`': '<code class="bg-gray-100 px-1 rounded">$1</code>',
+      '^>\\s(.+)$': `<blockquote class="${styles.blockquote}">$1</blockquote>`,
+      '`(.+?)`': `<code class="${styles.inlineCode}">$1</code>`,
       '__(.+?)__': '<u>$1</u>',
       '\\{c\\}([\\s\\S]*?)\\{c\\}': '<div class="text-center">$1</div>',
       '\\{\\/r\\}([\\s\\S]*?)\\{\\/r\\}': '<div class="text-right">$1</div>',
@@ -170,11 +200,11 @@ const ContentFormatter: React.FC<ContentFormatterProps> = ({
     formatted = formatted
       .replace(
         /\[([^\]]+)\]\(([^)]+)\)/g,
-        (_, text, url) => `<a href="${escapeHtml(url)}" class="text-blue-500 hover:underline" target="_blank" rel="noopener noreferrer">${escapeHtml(text)}</a>`
+        (_, text, url) => `<a href="${escapeHtml(url)}" class="text-[#4b7faf] hover:underline" target="_blank" rel="noopener noreferrer">${escapeHtml(text)}</a>`
       )
       .replace(
         /(?<![\(\[]|href="|">)https?:\/\/(?:www\.)?([^\s<]+?)(?=\s|$|<)/g,
-        match => `<a href="${escapeHtml(match)}" class="text-blue-500 hover:underline" target="_blank" rel="noopener noreferrer">${escapeHtml(match.replace(/^https?:\/\/(www\.)?/, ''))}</a>`
+        match => `<a href="${escapeHtml(match)}" class="text-[#4b7faf] hover:underline" target="_blank" rel="noopener noreferrer">${escapeHtml(match.replace(/^https?:\/\/(www\.)?/, ''))}</a>`
       );
   
     return processEquationReferences(processLatex(formatted));
@@ -182,13 +212,13 @@ const ContentFormatter: React.FC<ContentFormatterProps> = ({
 
   const renderContent = () => {
     if (!content) return null;
-
+  
     const blocks: JSX.Element[] = [];
     const regex = /```([\s\S]*?)```/g;
     let lastIndex = 0;
     let blockIndex = 0;
     let match;
-
+  
     while ((match = regex.exec(content)) !== null) {
       if (match.index > lastIndex) {
         const textContent = formatText(content.slice(lastIndex, match.index));
@@ -196,35 +226,41 @@ const ContentFormatter: React.FC<ContentFormatterProps> = ({
           <div key={`text-${blockIndex}`} dangerouslySetInnerHTML={{ __html: textContent }} />
         );
       }
-
+  
       const code = match[1].trim();
       const id = `code-${blockIndex}`;
+      const buttonClass = `${styles.copyButton} ${
+        hoveredButton === id ? styles.copyButtonHover : ''
+      } ${copyStates[id] ? styles.copyButtonSuccess : ''}`;
+  
       blocks.push(
-        <pre key={id} className="text-[15px] bg-gray-100 relative rounded-lg font-[var(--font-cmu-serif-roman)] min-h-[40px] flex items-center my-3">
+        <pre key={id} className={styles.pre}>
           <button
             onClick={() => handleCopy(code, id)}
-            className="copy-button p-1 w-8 h-8 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors absolute right-[7px] flex justify-center items-center top-[7px]"
+            onMouseEnter={() => setHoveredButton(id)}
+            onMouseLeave={() => setHoveredButton(null)}
+            className={buttonClass}
           >
-            {copyStates[id] ? <Check size={16} /> : <Clipboard size={16} />}
+            {copyStates[id] ? <Check size={14} /> : <Clipboard size={14} />}
           </button>
-          <p className="m-3 pr-12 overflow-x-auto w-full">{code}</p>
+          <p className="m-3 pr-16 overflow-x-auto w-full">{code}</p>
         </pre>
       );
-
+  
       lastIndex = match.index + match[0].length;
       blockIndex++;
     }
-
+  
     if (lastIndex < content.length) {
       const textContent = formatText(content.slice(lastIndex));
       blocks.push(
         <div key={`text-${blockIndex}`} dangerouslySetInnerHTML={{ __html: textContent }} />
       );
     }
-
+  
     return blocks;
   };
-
+  
   return (
     <div ref={contentRef}>
       {renderContent()}

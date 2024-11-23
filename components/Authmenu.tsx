@@ -8,8 +8,24 @@ import { app } from '@/lib/firebase-config';
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 
-export const AuthComponent: React.FC<{ settings?: boolean; newPost?: boolean; profile?: boolean }> = ({ 
-  settings = false, newPost = false, profile = false 
+interface AuthComponentProps {
+  settings?: boolean;
+  newPost?: boolean;
+  profile?: boolean;
+  onSave?: () => void;
+  showSave?: boolean;
+  documentId?: string;  // New prop for document ID
+  isEditing?: boolean;  // New prop to indicate if we're in edit mode
+}
+
+export const AuthComponent: React.FC<AuthComponentProps> = ({ 
+  settings = false, 
+  newPost = false, 
+  profile = false,
+  onSave,
+  showSave = false,
+  documentId,
+  isEditing = false
 }) => {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
@@ -57,14 +73,31 @@ export const AuthComponent: React.FC<{ settings?: boolean; newPost?: boolean; pr
     const items = [];
     
     if (user) {
+      if (showSave && onSave) {
+        items.push({ 
+          label: 'Save', 
+          onClick: onSave,
+          className: `${defaultStyle} text-green-900 font-medium border-b`
+        });
+      }
+
+      // Add Edit button when viewing a document
+      if (documentId && !isEditing) {
+        items.push({ 
+          label: 'Edit', 
+          onClick: () => router.push(`/post?edit=${documentId}`),
+          className: `${defaultStyle} font-medium text-gray-700 border-b`
+        });
+      }
+      
       if (profile) items.push({ label: 'Profile', onClick: () => router.push('/profile') });
       
-      // Only show New Post if user email matches ALLOWED_EMAIL
       if (newPost && user.email === process.env.NEXT_PUBLIC_ALLOWED_EMAIL) {
         items.push({ label: 'New Post', onClick: () => router.push('/post') });
       }
       
       if (settings) items.push({ label: 'Settings', onClick: () => router.push('/settings') });
+      
       items.push({
         label: 'Sign Out',
         onClick: () => handleAuth(false),
@@ -83,7 +116,7 @@ export const AuthComponent: React.FC<{ settings?: boolean; newPost?: boolean; pr
   };
 
   return (
-    <div className="absolute top-3 right-3">
+    <div className="absolute top-3 right-4">
       <div ref={avatarRef} onClick={() => setIsOpen(!isOpen)} className="cursor-pointer">
         <div className="rounded-full overflow-hidden">
           <Image 
@@ -97,7 +130,7 @@ export const AuthComponent: React.FC<{ settings?: boolean; newPost?: boolean; pr
       </div>
       
       {isOpen && (
-        <div ref={menuRef} className="absolute -right-2  mt-2 w-44 bg-white rounded-lg shadow-md overflow-hidden z-50">
+        <div ref={menuRef} className="absolute right-0 mt-2 w-44 bg-white shadow-md overflow-hidden z-50">
           {getMenuItems().map((item, index) => (
             <button
               key={index}
@@ -109,7 +142,6 @@ export const AuthComponent: React.FC<{ settings?: boolean; newPost?: boolean; pr
             >
               {item.label}
             </button>
-            
           ))}
         </div>
       )}
