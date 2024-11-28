@@ -66,7 +66,7 @@ export const WritingEditor: React.FC<{
         className="relative w-full rounded-t-lg z-10"
         style={{
           minHeight: `${containerHeight}px`,
-          backgroundImage: 'linear-gradient(to bottom, #fcfcfc 0%, #fcfcfc calc(100% - 100px), transparent 100%)'
+         
         }}
       >
         <textarea
@@ -76,14 +76,15 @@ export const WritingEditor: React.FC<{
             onContentChange(e.target.value)
             setCursorPosition(e.target.selectionStart)
           }}
-          className="w-full h-full p-12 resize-none bg-transparent outline-none transition-all duration-300 text-[15px]"
+          className="w-full h-full p-12 resize-none bg-transparent outline-none transition-all duration-300 text-[15px] placeholder:text-[#9b9a97]"
           style={{
             minHeight: '100px',
             caretColor: 'black',
             display: isPreviewMode ? 'none' : 'block'
           }}
-          placeholder="Start writing... "
+          placeholder="Write something, or press '/' for commands..."
         />
+        
         
         <div
           ref={previewRef}

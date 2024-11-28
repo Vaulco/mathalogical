@@ -53,9 +53,9 @@ const ContentFormatter: React.FC<ContentFormatterProps> = ({
   const styles = styleVariants[variant];
 
   const sizeClasses: Record<HeadingLevel, string> = {
-    1: 'text-[25px] mt-0 mb-0 text-gray-800',
-    2: 'text-[20px] my-2 text-gray-800',
-    3: 'text-[18px] my-2 text-gray-800',
+    1: 'text-[25px] mt-0 mb-0 ',
+    2: 'text-[20px] my-2 ',
+    3: 'text-[18px] my-2',
   };
 
   const handleCopy = async (text: string, id: string) => {

@@ -8,17 +8,17 @@ import DocumentViewer from './pages/[postid]';
 function HomePage() {
   return (
     <Layout>
-      <div className="flex flex-col items-center justify-center w-full max-w-[600px] top-1/4 absolute">
-        <h1 className="text-5xl mb-10 text-gray-800">
-          Mathalogical
+      <UserMenu newpost settings help/>
+      <div className="flex flex-col items-center justify-center w-full h-full max-w-[600px] absolute font-sans font-semibold text-[#37352f]">
+        <h1 className="text-[30px] mb-10  top-14 absolute">
+          Good afternoon
         </h1>
-        <div className="text-lg leading-relaxed ml-10 mr-10">
-          A new and innovative way to write mathematically...
-          With the help of LaTeX, you can write efficiently and
-          spread your work on the internet in the matter of hours.
+        <div className="text-base text-pretty leading-relaxed ml-10 mr-10 font-normal top-32 absolute ">
+        "This page is a memoir of my studies and examinations. I have carefully chosen these through careful reflection, organizing my thoughts and experiences across different subjects - from mathematics to other academic disciplines.
         </div>
       </div>
-      <UserMenu newpost settings help/>
+      
+      
     </Layout>
   );
 }
