@@ -4,53 +4,22 @@ import { Clipboard, Check } from 'lucide-react';
 
 type HeadingLevel = 1 | 2 | 3;
 
-interface StyleVariants {
-  pre: string;
-  inlineCode: string;
-  blockquote: string;
-  copyButton: string;
-  copyButtonHover: string;
-  copyButtonSuccess: string;
-}
-
 interface ContentFormatterProps {
   content: string;
   inlineMathSize?: string;
   displayMathSize?: string;
   mathTextSize?: string;
-  variant?: 'post' | 'document';
 }
-
-const styleVariants: Record<'post' | 'document', StyleVariants> = {
-  post: {
-    pre: "text-[15px] bg-gray-100 relative rounded-lg font-[var(--font-cmu-serif-roman)] min-h-[40px] flex items-center my-3",
-    inlineCode: "bg-gray-100 p-1 rounded",
-    blockquote: "border-l-4 border-gray-300 pl-4 my-4",
-    copyButton: "copy-button p-2 rounded-md transition-all duration-200 absolute right-[7px] flex justify-center items-center text-sm",
-    copyButtonHover: "hover:bg-white hover:border-gray-300",
-    copyButtonSuccess: "bg-gray-100 text-green-600"
-  },
-  document: {
-    pre: "text-[15px] bg-white relative rounded-lg font-[var(--font-cmu-serif-roman)] min-h-[40px] flex items-center my-3",
-    inlineCode: "p-1 rounded bg-white text-gray-500",
-    blockquote: "border-l-4 pl-4 my-4",
-    copyButton: "copy-button p-2 rounded-md transition-all duration-200 absolute right-[7px] flex justify-center items-center text-sm",
-    copyButtonHover: "hover:bg-gray-100 hover:border-gray-300",
-    copyButtonSuccess: "bg-gray-100 text-green-600"
-  }
-};
 
 const ContentFormatter: React.FC<ContentFormatterProps> = ({ 
   content, 
   inlineMathSize = 'text-[15px]',
   displayMathSize = 'text-base',
-  mathTextSize = 'text-[15px]',
-  variant = 'post'
+  mathTextSize = 'text-[15px]'
 }) => {
   const [copyStates, setCopyStates] = useState<Record<string, boolean>>({});
   const contentRef = useRef<HTMLDivElement>(null);
   const [hoveredButton, setHoveredButton] = useState<string | null>(null);
-  const styles = styleVariants[variant];
 
   const sizeClasses: Record<HeadingLevel, string> = {
     1: 'text-[25px] mt-0 mb-0 ',
@@ -84,12 +53,10 @@ const ContentFormatter: React.FC<ContentFormatterProps> = ({
   let equationCounter = 0;
 
   const processLatex = (text: string) => {
-    // Custom macros for different text sizes
     const macros = {
       '\\normaltext': `\\htmlClass{${mathTextSize}}{\\text{#1}}`,
     };
 
-    // First handle display math ($$...$$)
     const displayMathRegex = /\$\$([\s\S]*?)\$\$/g;
     text = text.replace(displayMathRegex, (match, latex) => {
       try {
@@ -110,7 +77,6 @@ const ContentFormatter: React.FC<ContentFormatterProps> = ({
       }
     });
 
-    // Then handle inline math ($...$)
     const inlineMathRegex = /\$([^\$]+?)\$/g;
     return text.replace(inlineMathRegex, (match, latex) => {
       try {
@@ -178,8 +144,8 @@ const ContentFormatter: React.FC<ContentFormatterProps> = ({
       '^-\\s(.+)$': '<div style="text-indent: -0.9em; padding-left: 1.9em;">• &nbsp;$1</div>',
       '^(\\d+)\\.\\s(.+)$': '<li value="$1" class="pl-1">$2</li>',
       '((?:<li.*>.*</li>\\n?)+)': '<ol class="list-decimal ml-4 my-0">$1</ol>',
-      '^>\\s(.+)$': `<blockquote class="${styles.blockquote}">$1</blockquote>`,
-      '`(.+?)`': `<code class="${styles.inlineCode}">$1</code>`,
+      '^>\\s(.+)$': '<blockquote class="border-l-4 border-gray-300 pl-4 my-4">$1</blockquote>',
+      '`(.+?)`': '<code class="bg-gray-100 p-1 rounded">$1</code>',
       '__(.+?)__': '<u>$1</u>',
       '\\{c\\}([\\s\\S]*?)\\{c\\}': '<div class="text-center">$1</div>',
       '\\{\\/r\\}([\\s\\S]*?)\\{\\/r\\}': '<div class="text-right">$1</div>',
@@ -229,12 +195,12 @@ const ContentFormatter: React.FC<ContentFormatterProps> = ({
   
       const code = match[1].trim();
       const id = `code-${blockIndex}`;
-      const buttonClass = `${styles.copyButton} ${
-        hoveredButton === id ? styles.copyButtonHover : ''
-      } ${copyStates[id] ? styles.copyButtonSuccess : ''}`;
+      const buttonClass = `p-2 rounded-md transition-all duration-200 absolute top-[7px] right-[7px] flex justify-center items-center text-sm ${
+        hoveredButton === id ? 'hover:bg-white hover:border-gray-300' : ''
+      } ${copyStates[id] ? 'bg-gray-100 text-green-600' : ''}`;
   
       blocks.push(
-        <pre key={id} className={styles.pre}>
+        <pre key={id} className="text-[15px] bg-gray-100 relative rounded-lg font-[var(--font-cmu-serif-roman)] min-h-[40px] flex items-center my-3">
           <button
             onClick={() => handleCopy(code, id)}
             onMouseEnter={() => setHoveredButton(id)}
@@ -243,7 +209,7 @@ const ContentFormatter: React.FC<ContentFormatterProps> = ({
           >
             {copyStates[id] ? <Check size={14} /> : <Clipboard size={14} />}
           </button>
-          <p className="m-3 pr-16 overflow-x-auto w-full">{code}</p>
+          <p className="mx-3 my-[11px] pr-16 overflow-x-auto w-full">{code}</p>
         </pre>
       );
   

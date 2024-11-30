@@ -60,7 +60,7 @@ export function UserMenu({ newpost, settings, help }: UserMenuProps) {
     <div className=" right-4 z-10">
       <div ref={avatarRef} onClick={() => setIsOpen(!isOpen)} className="cursor-pointer rounded-full overflow-hidden">
         <Authenticated>
-          <img src={user?.image ?? `/api/placeholder/32/32`} alt={user?.name ?? "Profile"} width={30} height={33} className="object-cover" />
+          <img src={user?.image ?? `/api/placeholder/32/32`} alt={user?.name ?? "Profile"} width={28} height={30} className="object-cover" />
         </Authenticated>
         <Unauthenticated>
           <img src="/avatar.png" alt="Default profile" width={33} height={33} className="object-cover" />
