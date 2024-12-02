@@ -23,7 +23,10 @@
     /* Import paths */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@tiptap/core": [
+        "node_modules/@tiptap/core/src/index"
+      ]
     }
   },
   "include": ["src"],

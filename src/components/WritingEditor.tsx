@@ -122,10 +122,13 @@ const WysiwygMathEditor: React.FC<WysiwygMathEditorProps> = ({
   range.deleteContents();
   range.insertNode(wrapper);
 
-  // Insert a line break (optional, for space below)
+const nextSibling = wrapper.nextSibling;
+
+if (!nextSibling || (nextSibling && nextSibling.textContent?.trim() === '')) {
   const spacer = document.createElement('div');
   spacer.innerHTML = '&nbsp;';
   wrapper.after(spacer);
+}
 
   adjustEditorHeight();
   break;
@@ -142,22 +145,9 @@ const WysiwygMathEditor: React.FC<WysiwygMathEditorProps> = ({
         // Make math node editable only by clicking to open popup
         mathSpan.addEventListener('click', (e) => {
           e.stopPropagation();
-          const mathNode = e.currentTarget as HTMLElement;
-          const originalMath = mathNode.getAttribute('data-math') || '';
-          const type = mathNode.getAttribute('data-type');
+        
+        
           
-          // Calculate position for popup
-          const rect = mathNode.getBoundingClientRect();
-          setEditingMath({
-            node: mathNode,
-            originalMath: originalMath,
-            previewMath: originalMath,
-            type: type || 'inline',
-            position: {
-              top: rect.bottom + window.scrollY + 10,
-              left: rect.left + window.scrollX
-            }
-          });
         });
 
       } catch (error) {
@@ -179,6 +169,12 @@ const WysiwygMathEditor: React.FC<WysiwygMathEditorProps> = ({
     if (!editingMath?.node) return;
 
     try {
+      if (save && (!newMath || newMath.trim() === '')) {
+        const parentNode = editingMath.node.closest('.math-node') || editingMath.node.parentElement;
+        parentNode?.remove();
+        setEditingMath(null);
+        return;
+      }
       // Always update the preview in the node
       editingMath.node.innerHTML = katex.renderToString(newMath, {
         displayMode: editingMath.type !== 'inline',
@@ -225,10 +221,9 @@ const WysiwygMathEditor: React.FC<WysiwygMathEditorProps> = ({
         {editingMath && (
           <div 
             ref={mathPopupRef}
-            className="absolute bg-white border rounded shadow-lg p-4 z-50"
+            className=" bg-white border rounded shadow-lg p-4 z-50 "
             style={{
-              top: `${editingMath.position.top}px`,
-              left: `${editingMath.position.left}px`,
+              
               width: '400px'
             }}
           >
