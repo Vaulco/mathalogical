@@ -43,7 +43,6 @@ export default function DocumentViewer() {
           content={documentInfo.content}
           inlineMathSize="text-sm"
           displayMathSize="text-base"
-          variant="document"
         />
       </div>
       </div>
