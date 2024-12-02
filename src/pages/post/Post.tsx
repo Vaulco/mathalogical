@@ -2,10 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { Authenticated, useQuery, useMutation } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
-import WritingEditor from '@/components/WritingEditor';
 import { Layout } from '@/Layout';
-import UserMenu from '@/components/UserMenu';
 import TimeAgo from '@/components/TimeAgo';
+import Share from '@/components/Share';
+import WritingEditor from '@/components/WritingEditor';
+
 
 interface Document {
   content: string;
@@ -54,7 +55,7 @@ export default function Post() {
       <Authenticated>
       <div className="w-full h-[calc(100%-44px)] bottom-0 border-gray-300 bg-[#f9f9f9] bg-opacity-0 fixed editor-container overflow-x-auto flex justify-center items-center">
       <div className="px-10 w-full flex justify-center items-center">
-        <WritingEditor 
+      <WritingEditor 
           content={document.content} 
           onContentChange={content => setDocument(d => ({ ...d, content }))} 
         />
@@ -71,8 +72,7 @@ export default function Post() {
       />
       <div className="flex items-center gap-1 mr-3">
         <TimeAgo timestamp={postData?.updatedAt} />
-        <div className="cursor-pointer text-[15px] px-2">Share</div>
-        <UserMenu />
+        <Share/>
       </div>
     </div>
       </Authenticated>
