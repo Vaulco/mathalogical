@@ -29,4 +29,17 @@ export const updateGithubProfile = mutation({
       name: githubUsername,
     });
   },
+  
+});
+export const listUsers = query({
+  args: {},
+  handler: async (ctx) => {
+    // Retrieve all users, excluding the current authenticated user if needed
+    const users = await ctx.db.query("users").collect();
+    return users;
+  },
+});
+
+export const getAllowedEmail = query(async () => {
+  return process.env.ALLOWED_EMAIL;
 });

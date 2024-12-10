@@ -1,146 +1,199 @@
-// posts.ts
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
-function getByteLength(str: string) {
-  return new TextEncoder().encode(str).length;
-}
+const MAX_CHUNK_SIZE = 990 * 1024;
+type AccessType = 'public' | 'private';
+
+const getChunkedContent = (content: string) => {
+  const chunks: string[] = [];
+  let currentChunk = "", currentSize = 0;
+  const encoder = new TextEncoder();
+  
+  for (const char of content) {
+    const charSize = encoder.encode(char).length;
+    if (currentSize + charSize > MAX_CHUNK_SIZE) {
+      chunks.push(currentChunk);
+      currentChunk = char;
+      currentSize = charSize;
+    } else {
+      currentChunk += char;
+      currentSize += charSize;
+    }
+  }
+  return currentChunk ? [...chunks, currentChunk] : chunks;
+};
+
+const checkAccess = (identity: any, firstPart: any) => 
+  firstPart.accessType === 'public' || 
+  (firstPart.accessType === 'private' && (
+    (process.env.ALLOWED_EMAIL && identity?.email === process.env.ALLOWED_EMAIL) ||
+    firstPart.accessUsers.some((user: string) => 
+      identity?.subject?.startsWith(user) || user === identity?.subject
+    )
+  ));
 
 export const get = query({
   args: { postId: v.string() },
   handler: async (ctx, { postId }) => {
-    const posts = await ctx.db
-      .query("posts")
-      .withIndex("by_postId", (q) => q.eq("postId", postId))
-      .collect();
+    const [identity, posts] = await Promise.all([
+      ctx.auth.getUserIdentity(),
+      ctx.db.query("posts").withIndex("by_postId", q => q.eq("postId", postId)).collect()
+    ]);
     
-    if (posts.length === 0) {
-      return null;
-    }
+    if (!posts.length) return null;
 
-    // Sort by part number to ensure correct order
-    posts.sort((a, b) => a.part - b.part);
-    
-    // Combine content from all parts
-    const combinedContent = posts.map(p => p.content).join("");
-    
-    // Get the most recent updatedAt timestamp across all parts
-    const latestUpdate = Math.max(...posts.map(p => p.updatedAt));
-    
     return {
-      title: posts[0]?.title || "Untitled Document",
-      content: combinedContent,
-      updatedAt: latestUpdate,
+      title: posts[0].title || "Untitled Document",
+      content: posts.sort((a, b) => a.part - b.part).map(p => p.content).join(""),
+      updatedAt: Math.max(...posts.map(p => p.updatedAt)),
       postId,
+      accessType: posts[0].accessType,
+      accessUsers: posts[0].accessUsers,
     };
-  },
+  }
 });
+
+const handleDocumentParts = async (ctx: any, postId: string, title: string, content: string, identity: any, existingParts: any[]) => {
+  const extractedUserId = identity.subject.split('|')[0];
+  const accessUsers = Array.from(new Set([
+    ...(process.env.ALLOWED_EMAIL && identity.email === process.env.ALLOWED_EMAIL ? [] : []),
+    extractedUserId
+  ]));
+
+  if (content.trim() === '') {
+    if (existingParts.length === 0) {
+      await ctx.db.insert("posts", {
+        postId, 
+        part: 0,
+        title: title || 'Untitled Document',
+        content: '',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        accessType: "private" as AccessType,
+        accessUsers: accessUsers
+      });
+    }
+    return;
+  }
+
+  const chunks = getChunkedContent(content);
+  await Promise.all([
+    ...chunks.map((chunk, i) => {
+      const existingPart = existingParts.find(p => p.part === i);
+      const partData = {
+        postId, 
+        part: i,
+        title: i === 0 ? title : `${title} (part ${i + 1})`,
+        content: chunk,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        accessType: "private" as AccessType,
+        accessUsers: i === 0 ? accessUsers : existingParts[i]?.accessUsers || [],
+      };
+      return existingPart 
+        ? ctx.db.patch(existingPart._id, { content: chunk, title: partData.title, updatedAt: Date.now() })
+        : ctx.db.insert("posts", partData);
+    }),
+    ...existingParts.filter(part => part.part >= chunks.length).map(part => ctx.db.delete(part._id))
+  ]);
+};
 
 export const update = mutation({
+  args: { postId: v.string(), title: v.string(), content: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const existingParts = await ctx.db.query("posts")
+      .withIndex("by_postId", q => q.eq("postId", args.postId))
+      .collect();
+
+    const extractedUserId = identity.subject.split('|')[0];
+    if (existingParts.length > 0 && 
+        !existingParts[0].accessUsers.includes(extractedUserId) && 
+        !(process.env.ALLOWED_EMAIL && identity.email === process.env.ALLOWED_EMAIL)) {
+      throw new Error("Not authorized to modify this document");
+    }
+
+    await handleDocumentParts(ctx, args.postId, args.title, args.content, identity, existingParts);
+  }
+});
+
+export const create = mutation({
+  args: { postId: v.string(), title: v.string(), content: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const existingParts = await ctx.db.query("posts")
+      .withIndex("by_postId", q => q.eq("postId", args.postId))
+      .collect();
+
+    if (existingParts.length === 0) {
+      await handleDocumentParts(ctx, args.postId, args.title, args.content, identity, []);
+      return { success: true };
+    }
+
+    if (existingParts.some(part => part.content.trim() !== '')) {
+      throw new Error("Document already exists");
+    }
+
+    await handleDocumentParts(ctx, args.postId, args.title, args.content, identity, existingParts);
+    return { success: true };
+  }
+});
+
+export const updateDocumentAccess = mutation({
   args: {
     postId: v.string(),
-    title: v.string(),
-    content: v.string(),
+    accessType: v.union(v.literal('public'), v.literal('private')),
+    users: v.array(v.string()),
   },
-  handler: async (ctx, { postId, title, content }) => {
-    // Don't proceed if content is empty (prevents deletion on initial load)
-    if (!content && !title) return;
+  handler: async (ctx, { postId, accessType, users }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
 
-    // Split content into chunks of ~990KB
-    const MAX_CHUNK_SIZE = 990 * 1024; // 990KB in bytes
-    const chunks: string[] = [];
-    let currentChunk = "";
-    let currentSize = 0;
+    const extractedUserId = identity.subject.split('|')[0];
     
-    // Split content into chunks
-    for (let i = 0; i < content.length; i++) {
-      const char = content[i];
-      const charSize = getByteLength(char);
-      
-      if (currentSize + charSize > MAX_CHUNK_SIZE) {
-        chunks.push(currentChunk);
-        currentChunk = char;
-        currentSize = charSize;
-      } else {
-        currentChunk += char;
-        currentSize += charSize;
-      }
-    }
-    
-    if (currentChunk) {
-      chunks.push(currentChunk);
-    }
-
-    // Get existing parts
-    const existingParts = await ctx.db
-      .query("posts")
-      .withIndex("by_postId", (q) => q.eq("postId", postId))
+    const parts = await ctx.db.query("posts")
+      .withIndex("by_postId", q => q.eq("postId", postId))
       .collect();
+    
+    // Only modify users if new users are provided
+    const existingUsers = parts[0].accessUsers || [];
+    const newUsers = users.length > 0 
+      ? Array.from(new Set([
+          ...existingUsers,
+          ...users,
+          ...(process.env.ALLOWED_EMAIL && identity.email === process.env.ALLOWED_EMAIL ? [] : [extractedUserId]),
+        ])) 
+      : existingUsers;
 
-    // Update or create chunks as needed
-    for (let i = 0; i < chunks.length; i++) {
-      const existingPart = existingParts.find(p => p.part === i);
-      
-      if (existingPart) {
-        // Update existing part
-        await ctx.db.patch(existingPart._id, {
-          content: chunks[i],
-          title: i === 0 ? title : title + ` (part ${i + 1})`,
-          updatedAt: Date.now(),
-        });
-      } else {
-        // Create new part
-        await ctx.db.insert("posts", {
-          postId,
-          part: i,
-          title: i === 0 ? title : title + ` (part ${i + 1})`,
-          content: chunks[i],
-          userId: (await ctx.auth.getUserIdentity())?.subject ?? "",
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        });
-      }
-    }
-
-    // Remove any extra parts that are no longer needed
-    for (const part of existingParts) {
-      if (part.part >= chunks.length) {
-        await ctx.db.delete(part._id);
-      }
-    }
-  },
+    await Promise.all(parts.map(part => 
+      ctx.db.patch(part._id, { 
+        accessType, 
+        accessUsers: newUsers 
+      })
+    ));
+    return { success: true };
+  }
 });
-export const getDocumentInfo = query({
+
+export const getUsersWithDocumentAccess = query({
   args: { postId: v.string() },
   handler: async (ctx, { postId }) => {
-    const posts = await ctx.db
-      .query("posts")
-      .withIndex("by_postId", (q) => q.eq("postId", postId))
+    const parts = await ctx.db.query("posts")
+      .withIndex("by_postId", q => q.eq("postId", postId))
       .collect();
+    if (!parts.length) return [];
     
-    if (posts.length === 0) {
-      return null;
-    }
-
-    // Sort by part number to ensure correct order
-    posts.sort((a, b) => a.part - b.part);
-    
-    // Combine content from all parts
-    const combinedContent = posts.map(p => p.content).join("");
-    
-    // Get metadata from the first part
-    const firstPart = posts[0];
-    
-    // Get the most recent updatedAt timestamp across all parts
-    const latestUpdate = Math.max(...posts.map(p => p.updatedAt));
-    
-    return {
-      title: firstPart.title,
-      content: combinedContent,
-      createdAt: firstPart.createdAt,
-      updatedAt: latestUpdate, // Use the most recent update time
-      postId,
-      userId: firstPart.userId,
-    };
-  },
+    // Always return the original access users, regardless of public/private status
+    return (await Promise.all(
+      Array.from(new Set(parts[0].accessUsers))
+        .map(userId => ctx.db.query("users")
+          .filter(q => q.eq(q.field("_id"), userId))
+          .first()
+        )
+    )).filter(Boolean);
+  }
 });

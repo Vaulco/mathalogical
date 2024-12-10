@@ -5,6 +5,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useNavigate } from 'react-router-dom';
 import { nanoid } from 'nanoid';
 
+
 interface UserMenuProps {
   newpost?: boolean;
   settings?: boolean;
@@ -18,8 +19,8 @@ export function UserMenu({ newpost, settings, help }: UserMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const avatarRef = useRef<HTMLDivElement>(null);
-  const ALLOWED_EMAIL = import.meta.env.VITE_ALLOWED_EMAIL;
-  const isAllowedToCreatePost = user?.email === ALLOWED_EMAIL;
+  const allowedEmail = useQuery(api.users.getAllowedEmail);
+  const isAllowedToCreatePost = user?.email === allowedEmail;
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {

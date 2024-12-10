@@ -1,81 +1,124 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Navigate, useParams } from 'react-router-dom';
-import { Authenticated, useQuery, useMutation } from 'convex/react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Navigate, useParams} from 'react-router-dom';
+import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { Layout } from '@/Layout';
 import TimeAgo from '@/components/TimeAgo';
 import Share from '@/components/Share';
 import WritingEditor from '@/components/WritingEditor';
 
-
-interface Document {
-  content: string;
-  title: string;
-}
+type Document = { content: string; title: string };
+const DEFAULT_DOC = { content: '', title: 'Untitled Document' };
 
 export default function Post() {
   const { postId } = useParams<{ postId: string }>();
+
+  // Combine all queries to ensure consistent hook order
   const user = useQuery(api.users.viewer);
-  const updatePost = useMutation(api.posts.update);
-  const postData = useQuery(api.posts.getDocumentInfo, postId ? { postId } : 'skip');
-  const [document, setDocument] = useState<Document>({ content: '', title: 'Untitled Document' });
-  const [initialContent, setInitialContent] = useState<Document>({ content: '', title: 'Untitled Document' });
+  const postData = useQuery(api.posts.get, postId ? { postId } : 'skip');
+  const allowedEmail = useQuery(api.users.getAllowedEmail);
+  const documentWithAccess = useQuery(api.posts.get, { postId: postId ?? '' });
+  const usersWithAccess = useQuery(api.posts.getUsersWithDocumentAccess, { postId: postId ?? '' });
+
+  // Memoize derived values
+  const isAllowedEmail = useMemo(() => 
+    user?.email && allowedEmail?.includes(user.email), 
+    [user, allowedEmail]
+  );
+
+  // Initial document state
+  const [doc, setDoc] = useState<Document>(DEFAULT_DOC);
+  const [initialContent, setInitialContent] = useState<Document>(DEFAULT_DOC);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
+  // Mutations
+  const updatePost = useMutation(api.posts.update);
+  const createPost = useMutation(api.posts.create);
+
+  // Combined effect for initial data loading and document creation
   useEffect(() => {
-    if (postData && isInitialLoad) {
-      const newDoc = { content: postData.content || '', title: postData.title || 'Untitled Document' };
-      setDocument(newDoc);
-      setInitialContent(newDoc);
+    if (!postId || !user || !isInitialLoad) return;
+
+    const initializeDocument = async () => {
+      if (postData) {
+        const newDoc = { 
+          content: postData.content || '', 
+          title: postData.title || DEFAULT_DOC.title 
+        };
+        setDoc(newDoc);
+        setInitialContent(newDoc);
+      } else if (isAllowedEmail) {
+        await createPost({ 
+          postId,
+          ...DEFAULT_DOC
+        });
+      }
       setIsInitialLoad(false);
-    }
-  }, [postData, isInitialLoad]);
+    };
 
-  const hasContentChanged = useCallback(() => {
-    const contentChanged = document.content.trim() !== initialContent.content.trim();
-    const titleChanged = document.title !== initialContent.title && document.title !== 'Untitled Document';    
-    return (contentChanged && document.content.trim().length > 0) || titleChanged;
-  }, [document, initialContent]);
+    initializeDocument();
+  }, [postId, postData, user, isAllowedEmail, createPost, isInitialLoad]);
 
+  // Memoized change detection
+  const hasChanges = useCallback(() => 
+    doc.content.trim() !== initialContent.content.trim() || 
+    (doc.title !== initialContent.title && doc.title !== DEFAULT_DOC.title),
+    [doc, initialContent]
+  );
+
+  // Autosave effect
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (postId && hasContentChanged()) {
-        updatePost({ postId, title: document.title, content: document.content });
+      if (postId && hasChanges()) {
+        updatePost({ postId, ...doc });
       }
     });
     return () => clearTimeout(timer);
-  }, [document, postId, updatePost, hasContentChanged]);
+  }, [doc, postId, updatePost, hasChanges]);
 
+  // Access control effect
+  
+
+  // Early return guards
   if (!postId?.length || postId.length !== 12) return <Navigate to="/" />;
   if (user === undefined) return <Layout><div className="w-full h-full flex justify-center items-center">Loading...</div></Layout>;
-  if (!user || user.email !== import.meta.env.VITE_ALLOWED_EMAIL) return <Navigate to="/" replace />;
-
+  if (!postData && !isAllowedEmail) return <Navigate to="/" />;
+  if (user && documentWithAccess && usersWithAccess !== undefined) {
+    if (documentWithAccess.accessType === 'private') {
+      const userHasAccess = usersWithAccess.some(
+        accessUser => accessUser?._id === user._id
+      );
+  
+      if (!userHasAccess) {
+        return <Navigate to="/" />;
+      }
+    }
+  }
   return (
     <Layout>
-      <Authenticated>
+      {/* Existing render logic remains the same */}
       <div className="w-full h-[calc(100%-44px)] bottom-0 border-gray-300 bg-[#f9f9f9] bg-opacity-0 fixed editor-container overflow-x-auto flex justify-center items-center">
-      <div className="px-10 w-full flex justify-center items-center">
-      <WritingEditor 
-          content={document.content} 
-          onContentChange={content => setDocument(d => ({ ...d, content }))} 
+        <div className="px-10 w-full flex justify-center items-center">
+          <WritingEditor 
+            content={doc.content} 
+            onContentChange={content => setDoc(d => ({ ...d, content }))} 
+          />
+        </div>
+      </div>
+      <div className="absolute top-0 w-full h-[44px] flex items-center justify-end">
+        <input 
+          type="text" 
+          value={doc.title}
+          onChange={e => setDoc(d => ({ ...d, title: e.target.value }))}
+          onFocus={e => e.target.select()}
+          onBlur={e => setDoc(d => ({ ...d, title: e.target.value.trim() || DEFAULT_DOC.title }))}
+          className="absolute left-4 max-w-[165px] text-[15px] bg-transparent outline-none"
         />
+        <div className="flex items-center gap-1 mr-3">
+          <TimeAgo timestamp={postData?.updatedAt} />
+          <Share postId={postId} />
+        </div>
       </div>
-    </div>
-        <div className="absolute top-0 w-full h-[44px] flex items-center justify-end">
-      <input 
-        type="text" 
-        value={document.title}
-        onChange={e => setDocument(d => ({ ...d, title: e.target.value }))}
-        onFocus={e => e.target.select()}
-        onBlur={e => setDocument(d => ({ ...d, title: e.target.value.trim() || 'Untitled Document' }))}
-        className="absolute left-4 max-w-[165px] text-[15px] bg-transparent outline-none"
-      />
-      <div className="flex items-center gap-1 mr-3">
-        <TimeAgo timestamp={postData?.updatedAt} />
-        <Share/>
-      </div>
-    </div>
-      </Authenticated>
     </Layout>
   );
 }

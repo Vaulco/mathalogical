@@ -3,7 +3,6 @@ import { Layout } from "@/Layout";
 import { UserMenu } from "@/components/UserMenu";
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Post from './pages/post/Post';
-import DocumentViewer from './pages/[postid]';
 
 function HomePage() {
   return (
@@ -28,8 +27,7 @@ export default function App() {
     <Router>
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/post/:postId" element={<Post />} />
-        <Route path="/:postId" element={<DocumentViewer />} />
+        <Route path="/post/:postId" element={<Post  />} />
       </Routes>
     </Router>
   );
