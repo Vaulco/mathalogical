@@ -71,7 +71,8 @@ export default function Share({ postId }: { postId: string }) {
         accessType: documentWithAccess?.accessType || 'private',
         users: state.selectedUsers.map(user => user._id)
       });
-      resetShareState();
+      setState$({ mode: 'overview', searchTerm: '', selectedUsers: [] })
+      
     } catch (error) {
       setState$({ error: (error as Error).message });
     }
@@ -89,7 +90,7 @@ export default function Share({ postId }: { postId: string }) {
   if (!currentUser || currentUser.email !== useQuery(api.users.getAllowedEmail)) return null;
 
   const renderUserListItem = (user: User, showControls = true) => (
-    <div className="flex items-center hover:bg-[#f3f3f3] px-3 py-1 rounded-lg cursor-pointer">
+    <div className="flex items-center hover:bg-[#f3f3f3] px-3 py-1 rounded-xl cursor-pointer">
       <img src={user.image} alt={user.name || 'User'} className="w-8 border rounded-full mr-3" />
       <div className="flex-grow">
         <div className="font-medium">
@@ -104,7 +105,7 @@ export default function Share({ postId }: { postId: string }) {
 
   return (
     <div className="relative">
-      <div ref={shareButtonRef} onClick={() => setState$({ isPopupOpen: !state.isPopupOpen })} className="cursor-pointer text-[15px] px-2 flex items-center hover:bg-gray-100 rounded">
+      <div ref={shareButtonRef} onClick={() => setState$({ isPopupOpen: !state.isPopupOpen })} className="cursor-pointer text-[15px] pr-2 flex items-center hover:bg-gray-100 rounded">
         Share
       </div>
       
@@ -122,7 +123,7 @@ export default function Share({ postId }: { postId: string }) {
             <h3>{state.mode === 'overview' ? 'Share' : 'Invite'}</h3>
           </div>
 
-          <div className="relative px-4 pt-4 pb-2 w-full gap-2 flex">
+          <div className="relative px-4 pt-3 pb-2 w-full gap-2 flex">
             <input 
               type="text" 
               placeholder="Email or name..." 
@@ -139,9 +140,10 @@ export default function Share({ postId }: { postId: string }) {
               Invite
             </button>
           </div>
-
+          
           {state.mode === 'overview' ? (
             <>
+            <p className="text-[13px] text-[#7d7c78] pl-3 pb-2">Has access</p>
               <div>
                 {usersWithAccess && usersWithAccess.length > 0 ? (
                   <div className="max-h-[280px] overflow-y-auto">
@@ -150,11 +152,11 @@ export default function Share({ postId }: { postId: string }) {
                     </div>
                   </div>
                 ) : (
-                  <p className="text-gray-500 text-sm">No users have access</p>
+                  <span className=" text-[#7d7c78] w-full flex justify-center p-6">No users have access</span>
                 )}
               </div>
 
-              <span className="text-[13px] text-[#7d7c78] pl-3">General access</span>
+              <p className="text-[13px] text-[#7d7c78] pl-3">General access</p>
 
               <div className="flex items-center justify-center mb-4">
                 <span className="mr-3 text-sm text-gray-600">
@@ -173,8 +175,9 @@ export default function Share({ postId }: { postId: string }) {
             </>
           ) : (
             <>
+            
               {state.selectedUsers.length > 0 && (
-                <div className="px-4">
+                <div className="px-3 pb-2">
                   <div className="flex flex-wrap gap-2">
                     {state.selectedUsers.map(user => (
                       <div key={user._id} className="flex items-center text-[13px] text-[#402c1b] bg-[#fbf3db] h-[23px] px-2 rounded">
@@ -186,14 +189,14 @@ export default function Share({ postId }: { postId: string }) {
                   </div>
                 </div>
               )}
-
+<p className="text-[13px] text-[#7d7c78] pl-3 pb-2">Available users</p>
               <div className="max-h-[300px] overflow-y-auto">
                 {availableUsers.length > 0 ? (
                   availableUsers.map(user => (
                     <div 
                       key={user._id} 
                       onClick={() => handleAddUser(user)}
-                      className={`p-2 pb-4 pt-0${state.selectedUsers.some(selected => selected._id === user._id) ? ' bg-blue-50' : ''}`}
+                      className={`p-2  pt-0${state.selectedUsers.some(selected => selected._id === user._id) ? ' bg-blue-50' : ''}`}
                     >
                       {renderUserListItem(user)}
                     </div>

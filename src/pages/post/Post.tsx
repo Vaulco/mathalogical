@@ -6,20 +6,26 @@ import { Layout } from '@/Layout';
 import TimeAgo from '@/components/TimeAgo';
 import Share from '@/components/Share';
 import WritingEditor from '@/components/WritingEditor';
+import { useNavigate } from 'react-router-dom';
 
 type Document = { content: string; title: string };
 const DEFAULT_DOC = { content: '', title: 'Untitled Document' };
 
 export default function Post() {
   const { postId } = useParams<{ postId: string }>();
-
+const navigate = useNavigate();
   // Combine all queries to ensure consistent hook order
   const user = useQuery(api.users.viewer);
   const postData = useQuery(api.posts.get, postId ? { postId } : 'skip');
   const allowedEmail = useQuery(api.users.getAllowedEmail);
   const documentWithAccess = useQuery(api.posts.get, { postId: postId ?? '' });
   const usersWithAccess = useQuery(api.posts.getUsersWithDocumentAccess, { postId: postId ?? '' });
-
+  const currentUser = useQuery(api.users.viewer);
+useEffect(() => {
+    if (!currentUser && documentWithAccess?.accessType === 'private') {
+      navigate('/');
+    }
+  }, [currentUser, documentWithAccess, navigate]);
   // Memoize derived values
   const isAllowedEmail = useMemo(() => 
     user?.email && allowedEmail?.includes(user.email), 

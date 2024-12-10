@@ -35,7 +35,7 @@ interface TimeAgoProps {
     }, [timestamp]);
   
     return (
-      <span className="text-[#9b9a97] text-[15px] relative">{timeAgo ? `Edited ${timeAgo}` : ''}</span>
+      <span className="text-[#9b9a97] text-[15px] relative pr-2">{timeAgo ? `Edited ${timeAgo}` : ''}</span>
     );
   };
 
