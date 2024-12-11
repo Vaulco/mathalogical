@@ -18,7 +18,9 @@
   },
   "dependencies": {
     "@convex-dev/auth": "^0.0.70",
-    "@types/katex": "^0.16.7",
+    "@tiptap/core": "^2.10.3",
+    "@tiptap/react": "^2.10.3",
+    "@tiptap/starter-kit": "^2.10.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "convex": "^1.17.3",
@@ -43,6 +45,7 @@
   },
   "devDependencies": {
     "@edge-runtime/vm": "^3.2.0",
+    "@types/katex": "^0.16.7",
     "@types/node": "^20.12.12",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
