@@ -39,7 +39,7 @@ export default function Share({ postId }: { postId: string }) {
         (popupRef.current && !popupRef.current.contains(e.target as Node)) && 
         (shareButtonRef.current && !shareButtonRef.current.contains(e.target as Node));
       
-      if (isOutside) resetShareState();
+      if (isOutside) setState$({ isPopupOpen: false });
     };
 
     if (state.isPopupOpen) document.addEventListener('mousedown', handleClickOutside);
@@ -179,13 +179,13 @@ export default function Share({ postId }: { postId: string }) {
                 </div>
               )}
               <p className="text-[13px] text-[#7d7c78] pl-3 pb-2">Available users</p>
-              <div className="max-h-[300px] overflow-y-auto">
+              <div className="max-h-[300px] overflow-y-auto pb-2">
                 {availableUsers.length ? (
                   availableUsers.map(user => (
                     <div 
                       key={user._id} 
                       onClick={() => handleAddUser(user)}
-                      className={`p-2 pt-0${state.selectedUsers.some(selected => selected._id === user._id) ? ' bg-blue-50' : ''}`}
+                      className={`p-2 pb-0 pt-0${state.selectedUsers.some(selected => selected._id === user._id) ? ' bg-blue-50' : ''}`}
                     >
                       {renderUserListItem(user)}
                     </div>
