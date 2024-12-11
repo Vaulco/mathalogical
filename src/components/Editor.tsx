@@ -6,8 +6,6 @@ export const Editor: React.FC<{ content: string; onContentChange: (content: stri
   ({ content, onContentChange }) => {
   const [textBlocks, setTextBlocks] = useState<TextBlock[]>([]);
   const [isEditingBlock, setIsEditingBlock] = useState<string | null>(null);
-  const [containerHeight, setContainerHeight] = useState(500);
-
   const previewRef = useRef<HTMLDivElement>(null);
   const editableRefs = useRef<{[key: string]: HTMLDivElement | null}>({});
   const isInitialLoad = useRef(true);
@@ -49,12 +47,6 @@ export const Editor: React.FC<{ content: string; onContentChange: (content: stri
     }
   }, [content, splitTextIntoBlocks]);
 
-  useEffect(() => {
-    if (previewRef.current) {
-      setContainerHeight(Math.max(previewRef.current.scrollHeight, 400) + 30);
-    }
-  }, [content]);
-
   const createNewBlock = useCallback(() => {
     const newBlock: TextBlock = { id: `block-${Date.now()}`, content: '' };
     updateBlocks(blocks => blocks.length ? [...blocks, newBlock] : [newBlock]);
@@ -68,22 +60,7 @@ export const Editor: React.FC<{ content: string; onContentChange: (content: stri
     if (!lastBlock || lastBlock.content.trim()) createNewBlock();
   }, [textBlocks, createNewBlock]);
 
-  const handleBlockClick = useCallback((e: React.MouseEvent, block: TextBlock) => {
-    setIsEditingBlock(block.id);
-    queueMicrotask(() => {
-      const blockDiv = editableRefs.current[block.id];
-      if (blockDiv) {
-        const range = document.caretRangeFromPoint(e.clientX, e.clientY);
-        if (range) {
-          const sel = window.getSelection();
-          sel?.removeAllRanges();
-          sel?.addRange(range);
-        }
-      }
-    });
-  }, []);
-
-  const handleKeyDown = useCallback((e: KeyboardEvent<HTMLDivElement>, blockId: string) => {
+  const handleBlockNavigation = useCallback((e: KeyboardEvent<HTMLDivElement>, blockId: string) => {
     const currentBlockIndex = textBlocks.findIndex(block => block.id === blockId);
     const currentBlock = textBlocks[currentBlockIndex];
     const editableDiv = e.currentTarget;
@@ -118,10 +95,9 @@ export const Editor: React.FC<{ content: string; onContentChange: (content: stri
     };
 
     const mergeBlocks = () => {
-      if (textBlocks.length <= 1 || !range) return;
+      if (!sel || !range || !sel.isCollapsed || textBlocks.length <= 1) return;
     
       const currentBlockIndex = textBlocks.findIndex(block => block.id === blockId);
-      const currentBlock = textBlocks[currentBlockIndex];
       const previousBlockIndex = currentBlockIndex > 0 ? currentBlockIndex - 1 : 0;
       const previousBlock = textBlocks[previousBlockIndex];
       const isAtStart = range.startOffset === 0;
@@ -139,7 +115,7 @@ export const Editor: React.FC<{ content: string; onContentChange: (content: stri
           updatedBlocks.splice(currentBlockIndex, 1);
           return updatedBlocks;
         });
-
+  
         setIsEditingBlock(previousBlock.id);
         queueMicrotask(() => {
           const previousBlockDiv = editableRefs.current[previousBlock.id];
@@ -175,9 +151,8 @@ export const Editor: React.FC<{ content: string; onContentChange: (content: stri
         key={block.id}
         ref={(el) => editableRefs.current[block.id] = el}
         contentEditable={isCurrentBlock}
-        data-content-editable-leaf="true"
-        spellCheck="true"
         data-placeholder="Write something, or press '/' for commands..."
+        spellCheck="true"
         suppressContentEditableWarning
         onInput={(e) => {
           if (isCurrentBlock) {
@@ -206,20 +181,16 @@ export const Editor: React.FC<{ content: string; onContentChange: (content: stri
             });
           }
         }}
-        onBlur={(e) => updateBlocks(blocks => 
-          blocks.map(b => b.id === block.id ? { ...b, content: e.currentTarget.innerText } : b)
-        )}
-        onKeyDown={(e) => isCurrentBlock && handleKeyDown(e, block.id)}
-        onClick={(e) => handleBlockClick(e, block)}
+        onKeyDown={(e) => isCurrentBlock && handleBlockNavigation(e, block.id)}
+        onClick={() => setIsEditingBlock(block.id)}
         className={`w-full focus:outline-none text-[15px] leading-[1.5] py-0 whitespace-pre-wrap break-words ${
           !block.content ? 'empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400' : ''
         }`}
-        
       >
         {isCurrentBlock ? block.content : block.content || '\u200B'}
       </div>
     );
-  }, [isEditingBlock, updateBlocks, handleKeyDown, handleBlockClick]);
+  }, [isEditingBlock, updateBlocks, handleBlockNavigation]);
 
   const renderedBlocks = useMemo(() => textBlocks.map(renderBlock), [textBlocks, renderBlock]);
 
@@ -227,8 +198,7 @@ export const Editor: React.FC<{ content: string; onContentChange: (content: stri
     <div className="absolute top-0 w-[650px] mx-auto mt-8 mb-32">
       <div
         ref={previewRef}
-        className="relative w-full rounded-t-lg z-10 bg-white shadow-sm p-12"
-        style={{ minHeight: `${containerHeight}px` }}
+        className="relative w-full rounded-t-lg z-10 p-12"
         onClick={handleContainerClick}
       >
         {renderedBlocks}
