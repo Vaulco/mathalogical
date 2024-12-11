@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback, useMemo, KeyboardEvent
 
 type TextBlock = { id: string; content: string };
 
-export const WritingEditor: React.FC<{ content: string; onContentChange: (content: string) => void }> = 
+export const Editor: React.FC<{ content: string; onContentChange: (content: string) => void }> = 
   ({ content, onContentChange }) => {
   const [textBlocks, setTextBlocks] = useState<TextBlock[]>([]);
   const [isEditingBlock, setIsEditingBlock] = useState<string | null>(null);
@@ -237,4 +237,4 @@ export const WritingEditor: React.FC<{ content: string; onContentChange: (conten
   );
 };
 
-export default WritingEditor;
+export default Editor;

@@ -4,13 +4,7 @@ import { useQuery, useMutation } from "convex/react";
 import { ChevronLeft, ArrowUpLeft, Globe, X } from 'lucide-react';
 import { Id } from "../../convex/_generated/dataModel";
 
-type User = { 
-  _id: Id<"users">; 
-  _creationTime: number;
-  name?: string; 
-  email?: string; 
-  image?: string; 
-};
+type User = { _id: Id<"users">; _creationTime: number; name?: string; email?: string; image?: string; };
 type ShareMode = 'overview' | 'invite';
 
 const isUserMatchingSearch = (user: User, search: string): boolean => 
@@ -18,13 +12,10 @@ const isUserMatchingSearch = (user: User, search: string): boolean =>
   (user.name !== undefined && user.name.toLowerCase().includes(search.toLowerCase())) || 
   (user.email !== undefined && user.email.toLowerCase().includes(search.toLowerCase()));
 
-
 export default function Share({ postId }: { postId: string }) {
   const [state, setState] = useState({
-    mode: 'overview' as ShareMode,
-    searchTerm: '',
-    selectedUsers: [] as User[],
-    error: null as string | null,
+    mode: 'overview' as ShareMode, searchTerm: '', 
+    selectedUsers: [] as User[], error: null as string | null, 
     isPopupOpen: false
   });
 
@@ -37,8 +28,10 @@ export default function Share({ postId }: { postId: string }) {
   const documentWithAccess = useQuery(api.posts.get, { postId });
   const usersWithAccess = useQuery(api.posts.getUsersWithDocumentAccess, { postId });
 
-  const setState$ = (updates: Partial<typeof state>) => setState(prev => ({ ...prev, ...updates }));
-  const resetShareState = () => setState$({ isPopupOpen: false, searchTerm: '', selectedUsers: [], mode: 'overview' });
+  const setState$ = (u: Partial<typeof state>) => setState(p => ({ ...p, ...u }));
+  const resetShareState = () => setState$({ 
+    isPopupOpen: true, searchTerm: '', selectedUsers: [], mode: 'overview' 
+  });
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -53,26 +46,27 @@ export default function Share({ postId }: { postId: string }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [state.isPopupOpen]);
 
-  const availableUsers = allUsers?.filter((user): user is User => 
-    user != null && 
-    !usersWithAccess?.some(accessUser => accessUser?._id === user._id) &&
-    !state.selectedUsers.some(selectedUser => selectedUser._id === user._id) &&
-    isUserMatchingSearch(user, state.searchTerm)
+  const availableUsers = allUsers?.filter((u): u is User => 
+    u && 
+    !usersWithAccess?.some(a => a?._id === u._id) &&
+    !state.selectedUsers.some(s => s._id === u._id) &&
+    isUserMatchingSearch(u, state.searchTerm)
   ) || [];
 
-  const handleAddUser = (user: User) => setState$({ selectedUsers: [...state.selectedUsers, user], mode: 'invite' });
-  const handleRemoveUser = (userToRemove: User) => 
-    setState$({ selectedUsers: state.selectedUsers.filter(user => user._id !== userToRemove._id) });
+  const handleAddUser = (u: User) => setState$({ 
+    selectedUsers: [...state.selectedUsers, u], mode: 'invite' 
+  });
+  const handleRemoveUser = (r: User) => 
+    setState$({ selectedUsers: state.selectedUsers.filter(u => u._id !== r._id) });
 
   const handleInvite = async () => {
     try {
       await updateDocumentAccess({
         postId,
         accessType: documentWithAccess?.accessType || 'private',
-        users: state.selectedUsers.map(user => user._id)
+        users: state.selectedUsers.map(u => u._id)
       });
-      setState$({ mode: 'overview', searchTerm: '', selectedUsers: [] })
-      
+      resetShareState();
     } catch (error) {
       setState$({ error: (error as Error).message });
     }
@@ -89,15 +83,15 @@ export default function Share({ postId }: { postId: string }) {
 
   if (!currentUser || currentUser.email !== useQuery(api.users.getAllowedEmail)) return null;
 
-  const renderUserListItem = (user: User, showControls = true) => (
+  const renderUserListItem = (u: User, showControls = true) => (
     <div className="flex items-center hover:bg-[#f3f3f3] px-3 py-1 rounded-xl cursor-pointer">
-      <img src={user.image} alt={user.name || 'User'} className="w-8 border rounded-full mr-3" />
+      <img src={u.image} alt={u.name || 'User'} className="w-8 border rounded-full mr-3" />
       <div className="flex-grow">
         <div className="font-medium">
-          {user.name || 'Unnamed User'}
-          {user.email === currentUser?.email && <span className="text-sm text-[#9b9a97] ml-2">(You)</span>}
+          {u.name || 'Unnamed User'}
+          {u.email === currentUser?.email && <span className="text-sm text-[#9b9a97] ml-2">(You)</span>}
         </div>
-        <div className="text-[13px] text-[#797874]">{user.email}</div>
+        <div className="text-[13px] text-[#797874]">{u.email}</div>
       </div>
       {showControls && <ArrowUpLeft size={17} className="text-[#9b9a97]" />}
     </div>
@@ -105,7 +99,8 @@ export default function Share({ postId }: { postId: string }) {
 
   return (
     <div className="relative">
-      <div ref={shareButtonRef} onClick={() => setState$({ isPopupOpen: !state.isPopupOpen })} className="cursor-pointer text-[15px] pr-2 flex items-center hover:bg-gray-100 rounded">
+      <div ref={shareButtonRef} onClick={() => setState$({ isPopupOpen: !state.isPopupOpen })} 
+        className="cursor-pointer text-[15px] pr-2 flex items-center">
         Share
       </div>
       
@@ -113,10 +108,8 @@ export default function Share({ postId }: { postId: string }) {
         <div ref={popupRef} className="absolute top-full right-0 mt-2 z-10 min-w-[380px] bg-white rounded-xl border shadow-lg">
           <div className="p-2 pl-4 flex items-center border-b">
             {state.mode === 'invite' && (
-              <button 
-                onClick={() => setState$({ mode: 'overview', searchTerm: '', selectedUsers: [] })} 
-                className="text-[#9f9e9b] hover:bg-gray-100 p-[2px] relative right-1 rounded mr-1"
-              >
+              <button onClick={() => setState$({ mode: 'overview', searchTerm: '', selectedUsers: [] })} 
+                className="text-[#9f9e9b] hover:bg-gray-100 p-[2px] relative right-1 rounded mr-1">
                 <ChevronLeft size={18} />
               </button>
             )}
@@ -124,9 +117,7 @@ export default function Share({ postId }: { postId: string }) {
           </div>
 
           <div className="relative px-4 pt-3 pb-2 w-full gap-2 flex">
-            <input 
-              type="text" 
-              placeholder="Email or name..." 
+            <input type="text" placeholder="Email or name..." 
               value={state.searchTerm}
               onChange={(e) => setState$({ searchTerm: e.target.value })}
               onFocus={() => setState$({ mode: 'invite' })}
@@ -135,24 +126,23 @@ export default function Share({ postId }: { postId: string }) {
             <button
               onClick={state.mode === 'overview' ? () => setState$({ mode: 'invite' }) : handleInvite}
               disabled={state.mode === 'invite' && state.selectedUsers.length === 0}
-              className="w-[60px] h-[32px] rounded-md"
-            >
+              className="w-[60px] h-[32px] rounded-md">
               Invite
             </button>
           </div>
           
           {state.mode === 'overview' ? (
             <>
-            <p className="text-[13px] text-[#7d7c78] pl-3 pb-2">Has access</p>
+              <p className="text-[13px] text-[#7d7c78] pl-3 pb-2">Has access</p>
               <div>
-                {usersWithAccess && usersWithAccess.length > 0 ? (
+                {usersWithAccess?.length ? (
                   <div className="max-h-[280px] overflow-y-auto">
                     <div className="p-2 pt-0">
                       {usersWithAccess.filter((user): user is User => user !== null).map(user => renderUserListItem(user, false))}
                     </div>
                   </div>
                 ) : (
-                  <span className=" text-[#7d7c78] w-full flex justify-center p-6">No users have access</span>
+                  <span className="text-[#7d7c78] w-full flex justify-center p-6">No users have access</span>
                 )}
               </div>
 
@@ -175,7 +165,6 @@ export default function Share({ postId }: { postId: string }) {
             </>
           ) : (
             <>
-            
               {state.selectedUsers.length > 0 && (
                 <div className="px-3 pb-2">
                   <div className="flex flex-wrap gap-2">
@@ -189,14 +178,14 @@ export default function Share({ postId }: { postId: string }) {
                   </div>
                 </div>
               )}
-<p className="text-[13px] text-[#7d7c78] pl-3 pb-2">Available users</p>
+              <p className="text-[13px] text-[#7d7c78] pl-3 pb-2">Available users</p>
               <div className="max-h-[300px] overflow-y-auto">
-                {availableUsers.length > 0 ? (
+                {availableUsers.length ? (
                   availableUsers.map(user => (
                     <div 
                       key={user._id} 
                       onClick={() => handleAddUser(user)}
-                      className={`p-2  pt-0${state.selectedUsers.some(selected => selected._id === user._id) ? ' bg-blue-50' : ''}`}
+                      className={`p-2 pt-0${state.selectedUsers.some(selected => selected._id === user._id) ? ' bg-blue-50' : ''}`}
                     >
                       {renderUserListItem(user)}
                     </div>
