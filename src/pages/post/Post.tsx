@@ -1,55 +1,39 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Navigate, useParams} from 'react-router-dom';
+import { Navigate, useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { Layout } from '@/Layout';
 import TimeAgo from '@/components/TimeAgo';
 import Share from '@/components/Share';
 import Editor from '@/components/Editor';
-import { useNavigate } from 'react-router-dom';
 
 type Document = { content: string; title: string };
 const DEFAULT_DOC = { content: '', title: 'Untitled Document' };
 
 export default function Post() {
   const { postId } = useParams<{ postId: string }>();
-const navigate = useNavigate();
-  // Combine all queries to ensure consistent hook order
-  const user = useQuery(api.users.viewer);
-  const postData = useQuery(api.posts.get, postId ? { postId } : 'skip');
-  const allowedEmail = useQuery(api.users.getAllowedEmail);
-  const documentWithAccess = useQuery(api.posts.get, { postId: postId ?? '' });
-  const usersWithAccess = useQuery(api.posts.getUsersWithDocumentAccess, { postId: postId ?? '' });
-  const currentUser = useQuery(api.users.viewer);
-useEffect(() => {
-    if (!currentUser && documentWithAccess?.accessType === 'private') {
-      navigate('/');
-    }
-  }, [currentUser, documentWithAccess, navigate]);
-  // Memoize derived values
+  const navigate = useNavigate();
+
+  const [user, postData, allowedEmail, documentWithAccess, usersWithAccess] = [
+    useQuery(api.users.viewer),
+    useQuery(api.posts.get, postId ? { postId } : 'skip'),
+    useQuery(api.users.getAllowedEmail),
+    useQuery(api.posts.get, { postId: postId ?? '' }),
+    useQuery(api.posts.getUsersWithDocumentAccess, { postId: postId ?? '' })
+  ];
+
   const isAllowedEmail = useMemo(() => 
     user?.email && allowedEmail?.includes(user.email), 
     [user, allowedEmail]
   );
-  
 
-  // Initial document state
   const [doc, setDoc] = useState<Document>(DEFAULT_DOC);
   const [initialContent, setInitialContent] = useState<Document>(DEFAULT_DOC);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-  // Mutations
-  const updatePost = useMutation(api.posts.update); useEffect(() => {
-    console.log('Current User:', user);
-    console.log('Post Data:', postData);
-    console.log('Is Initial Load:', isInitialLoad);
-    console.log('Allowed Email:', allowedEmail);
-    console.log('Document Access:', documentWithAccess);
-    console.log('Users with Access:', usersWithAccess);
-  }, [user, postData, isInitialLoad, allowedEmail, documentWithAccess, usersWithAccess]);
+  const updatePost = useMutation(api.posts.update);
   const createPost = useMutation(api.posts.create);
 
-  // Combined effect for initial data loading and document creation
   useEffect(() => {
     if (!postId || !user || !isInitialLoad) return;
 
@@ -62,10 +46,7 @@ useEffect(() => {
         setDoc(newDoc);
         setInitialContent(newDoc);
       } else if (isAllowedEmail) {
-        await createPost({ 
-          postId,
-          ...DEFAULT_DOC
-        });
+        await createPost({ postId, ...DEFAULT_DOC });
       }
       setIsInitialLoad(false);
     };
@@ -73,14 +54,12 @@ useEffect(() => {
     initializeDocument();
   }, [postId, postData, user, isAllowedEmail, createPost, isInitialLoad]);
 
-  // Memoized change detection
   const hasChanges = useCallback(() => 
     doc.content.trim() !== initialContent.content.trim() || 
     (doc.title !== initialContent.title && doc.title !== DEFAULT_DOC.title),
     [doc, initialContent]
   );
 
-  // Autosave effect
   useEffect(() => {
     const timer = setTimeout(() => {
       if (postId && hasChanges()) {
@@ -90,27 +69,26 @@ useEffect(() => {
     return () => clearTimeout(timer);
   }, [doc, postId, updatePost, hasChanges]);
 
-  // Access control effect
-  
+  useEffect(() => {
+    if (!user && documentWithAccess?.accessType === 'private') {
+      navigate('/');
+    }
+  }, [user, documentWithAccess, navigate]);
 
-  // Early return guards
   if (!postId?.length || postId.length !== 12) return <Navigate to="/" />;
   if (user === undefined) return <Layout><div className="w-full h-full flex justify-center items-center">Loading...</div></Layout>;
   if (!postData && !isAllowedEmail) return <Navigate to="/" />;
-  if (user && documentWithAccess && usersWithAccess !== undefined) {
-    if (documentWithAccess.accessType === 'private') {
-      const userHasAccess = usersWithAccess.some(
-        accessUser => accessUser?._id === user._id
-      );
   
-      if (!userHasAccess) {
-        return <Navigate to="/" />;
-      }
-    }
+  if (user && documentWithAccess && usersWithAccess !== undefined) {
+    const userHasAccess = documentWithAccess.accessType === 'private' 
+      ? usersWithAccess.some(accessUser => accessUser?._id === user._id)
+      : true;
+    
+    if (!userHasAccess) return <Navigate to="/" />;
   }
+
   return (
     <Layout>
-      {/* Existing render logic remains the same */}
       <div className="w-full h-[calc(100%-44px)] bottom-0 border-gray-300 bg-[#f9f9f9] bg-opacity-0 fixed editor-container overflow-x-auto flex justify-center items-center">
         <div className="px-10 w-full flex justify-center items-center">
           <Editor 
