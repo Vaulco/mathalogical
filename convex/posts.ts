@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
-const MAX_CHUNK_SIZE = 990 * 1024;
+const MAX_CHUNK_SIZE = Math.floor(1 * 1024 * 1024 / 100);
 type AccessType = 'public' | 'private';
 
 const getChunkedContent = (content: string) => {
@@ -23,15 +23,6 @@ const getChunkedContent = (content: string) => {
   return currentChunk ? [...chunks, currentChunk] : chunks;
 };
 
-const checkAccess = (identity: any, firstPart: any) => 
-  firstPart.accessType === 'public' || 
-  (firstPart.accessType === 'private' && (
-    (process.env.ALLOWED_EMAIL && identity?.email === process.env.ALLOWED_EMAIL) ||
-    firstPart.accessUsers.some((user: string) => 
-      identity?.subject?.startsWith(user) || user === identity?.subject
-    )
-  ));
-
 export const get = query({
   args: { postId: v.string() },
   handler: async (ctx, { postId }) => {
@@ -40,16 +31,14 @@ export const get = query({
       ctx.db.query("posts").withIndex("by_postId", q => q.eq("postId", postId)).collect()
     ]);
     
-    if (!posts.length) return null;
-
-    return {
+    return posts.length ? {
       title: posts[0].title || "Untitled Document",
       content: posts.sort((a, b) => a.part - b.part).map(p => p.content).join(""),
       updatedAt: Math.max(...posts.map(p => p.updatedAt)),
       postId,
       accessType: posts[0].accessType,
       accessUsers: posts[0].accessUsers,
-    };
+    } : null;
   }
 });
 
@@ -60,18 +49,20 @@ const handleDocumentParts = async (ctx: any, postId: string, title: string, cont
     extractedUserId
   ]));
 
-  if (content.trim() === '') {
-    if (existingParts.length === 0) {
+  if (!content.trim()) {
+    if (!existingParts.length) {
       await ctx.db.insert("posts", {
-        postId, 
-        part: 0,
-        title: title || 'Untitled Document',
-        content: '',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        accessType: "private" as AccessType,
-        accessUsers: accessUsers
+        postId, part: 0, title: title || 'Untitled Document',
+        content: '', createdAt: Date.now(), updatedAt: Date.now(),
+        accessType: "private" as AccessType, accessUsers
       });
+    } else {
+      await Promise.all(existingParts.map(part => 
+        ctx.db.patch(part._id, { 
+          title: title || 'Untitled Document', 
+          updatedAt: Date.now() 
+        })
+      ));
     }
     return;
   }
@@ -81,12 +72,9 @@ const handleDocumentParts = async (ctx: any, postId: string, title: string, cont
     ...chunks.map((chunk, i) => {
       const existingPart = existingParts.find(p => p.part === i);
       const partData = {
-        postId, 
-        part: i,
+        postId, part: i,
         title: i === 0 ? title : `${title} (part ${i + 1})`,
-        content: chunk,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
+        content: chunk, createdAt: Date.now(), updatedAt: Date.now(),
         accessType: "private" as AccessType,
         accessUsers: i === 0 ? accessUsers : existingParts[i]?.accessUsers || [],
       };
@@ -109,7 +97,7 @@ export const update = mutation({
       .collect();
 
     const extractedUserId = identity.subject.split('|')[0];
-    if (existingParts.length > 0 && 
+    if (existingParts.length && 
         !existingParts[0].accessUsers.includes(extractedUserId) && 
         !(process.env.ALLOWED_EMAIL && identity.email === process.env.ALLOWED_EMAIL)) {
       throw new Error("Not authorized to modify this document");
@@ -129,7 +117,7 @@ export const create = mutation({
       .withIndex("by_postId", q => q.eq("postId", args.postId))
       .collect();
 
-    if (existingParts.length === 0) {
+    if (!existingParts.length) {
       await handleDocumentParts(ctx, args.postId, args.title, args.content, identity, []);
       return { success: true };
     }
@@ -159,7 +147,6 @@ export const updateDocumentAccess = mutation({
       .withIndex("by_postId", q => q.eq("postId", postId))
       .collect();
     
-    // Only modify users if new users are provided
     const existingUsers = parts[0].accessUsers || [];
     const newUsers = users.length > 0 
       ? Array.from(new Set([
@@ -170,10 +157,7 @@ export const updateDocumentAccess = mutation({
       : existingUsers;
 
     await Promise.all(parts.map(part => 
-      ctx.db.patch(part._id, { 
-        accessType, 
-        accessUsers: newUsers 
-      })
+      ctx.db.patch(part._id, { accessType, accessUsers: newUsers })
     ));
     return { success: true };
   }
@@ -185,15 +169,15 @@ export const getUsersWithDocumentAccess = query({
     const parts = await ctx.db.query("posts")
       .withIndex("by_postId", q => q.eq("postId", postId))
       .collect();
-    if (!parts.length) return [];
     
-    // Always return the original access users, regardless of public/private status
-    return (await Promise.all(
-      Array.from(new Set(parts[0].accessUsers))
-        .map(userId => ctx.db.query("users")
-          .filter(q => q.eq(q.field("_id"), userId))
-          .first()
-        )
-    )).filter(Boolean);
+    return parts.length 
+      ? (await Promise.all(
+          Array.from(new Set(parts[0].accessUsers))
+            .map(userId => ctx.db.query("users")
+              .filter(q => q.eq(q.field("_id"), userId))
+              .first()
+            )
+        )).filter(Boolean)
+      : [];
   }
 });

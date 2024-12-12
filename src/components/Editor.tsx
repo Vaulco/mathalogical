@@ -10,138 +10,100 @@ export const Editor: React.FC<{ content: string; onContentChange: (content: stri
   const editableRefs = useRef<{[key: string]: HTMLDivElement | null}>({});
   const isInitialLoad = useRef(true);
 
-  const splitTextIntoBlocks = useCallback((text: string) => 
-    text.split('\n').filter(Boolean).map((block, index) => 
-      ({ id: `block-${index}`, content: block.trim() })), []);
-
   const updateBlocks = useCallback((updater: (blocks: TextBlock[]) => TextBlock[]) => {
-    const newBlocks = updater(textBlocks);
-    setTextBlocks(newBlocks);
-    onContentChange(newBlocks.map(b => b.content).join('\n'));
-  }, [textBlocks, onContentChange]);
+    setTextBlocks(blocks => {
+      const newBlocks = updater(blocks);
+      onContentChange(newBlocks.map(b => b.content).join('\n'));
+      return newBlocks;
+    });
+  }, [onContentChange]);
 
-  const focusBlock = useCallback((blockId: string, atStart = false) => {
+  const focusBlock = useCallback((blockId: string, atPosition?: number) => {
     queueMicrotask(() => {
       const blockDiv = editableRefs.current[blockId];
       if (!blockDiv) return;
-
       blockDiv.focus();
-      const sel = window.getSelection();
       const range = document.createRange();
       const lastChild = blockDiv.lastChild || blockDiv;
-      range.setStart(lastChild, atStart ? 0 : (lastChild.textContent?.length || 0));
+      const position = atPosition !== undefined ? atPosition : (lastChild.textContent?.length || 0);
+      range.setStart(lastChild, position);
       range.collapse(true);
-      sel?.removeAllRanges();
-      sel?.addRange(range);
+      window.getSelection()?.removeAllRanges();
+      window.getSelection()?.addRange(range);
     });
   }, []);
 
   useEffect(() => {
     if (content && isInitialLoad.current) {
-      const initialBlocks = splitTextIntoBlocks(content);
-      const blocksToSet = initialBlocks.length ? initialBlocks : [{ id: 'block-0', content: '' }];
-      
-      setTextBlocks(blocksToSet);
-      setIsEditingBlock(blocksToSet[0].id);
+      const blocks = content.split('\n').filter(Boolean).map((block, index) => 
+        ({ id: `block-${index}`, content: block.trim() }));
+      const initialBlocks = blocks.length ? blocks : [{ id: 'block-0', content: '' }];
+      setTextBlocks(initialBlocks);
+      setIsEditingBlock(initialBlocks[0].id);
       isInitialLoad.current = false;
     }
-  }, [content, splitTextIntoBlocks]);
+  }, [content]);
 
-  const createNewBlock = useCallback(() => {
-    const newBlock: TextBlock = { id: `block-${Date.now()}`, content: '' };
-    updateBlocks(blocks => blocks.length ? [...blocks, newBlock] : [newBlock]);
-    setIsEditingBlock(newBlock.id);
-    focusBlock(newBlock.id);
-  }, [updateBlocks, focusBlock]);
-
-  const handleContainerClick = useCallback((event: React.MouseEvent) => {
-    if (event.target !== previewRef.current) return;
-    const lastBlock = textBlocks[textBlocks.length - 1];
-    if (!lastBlock || lastBlock.content.trim()) createNewBlock();
-  }, [textBlocks, createNewBlock]);
-
-  const handleBlockNavigation = useCallback((e: KeyboardEvent<HTMLDivElement>, blockId: string) => {
-    const currentBlockIndex = textBlocks.findIndex(block => block.id === blockId);
-    const currentBlock = textBlocks[currentBlockIndex];
-    const editableDiv = e.currentTarget;
+  const handleBlockAction = useCallback((e: KeyboardEvent<HTMLDivElement>, blockId: string) => {
+    const currentIndex = textBlocks.findIndex(block => block.id === blockId);
+    const currentBlock = textBlocks[currentIndex];
     const sel = window.getSelection();
     const range = sel?.getRangeAt(0);
+    const editableDiv = e.currentTarget;
+    const isAtStart = !range?.startOffset;
+    const isAtEnd = range?.startOffset === editableDiv.textContent?.length;
+
+    const actions = {
+      ArrowUp: () => isAtStart && navigate('up'),
+      ArrowDown: () => isAtEnd && navigate('down'),
+      Enter: () => !e.shiftKey && splitBlock(),
+      Backspace: () => isAtStart && mergeBlocks()
+    };
 
     const navigate = (direction: 'up' | 'down') => {
       e.preventDefault();
-      const targetIndex = direction === 'up' 
-        ? Math.max(0, currentBlockIndex - 1) 
-        : Math.min(textBlocks.length - 1, currentBlockIndex + 1);
-      const targetBlock = textBlocks[targetIndex];
-      setIsEditingBlock(targetBlock.id);
-      focusBlock(targetBlock.id);
+      const targetIndex = direction === 'up' ? Math.max(0, currentIndex - 1) 
+        : Math.min(textBlocks.length - 1, currentIndex + 1);
+      setIsEditingBlock(textBlocks[targetIndex].id);
+      focusBlock(textBlocks[targetIndex].id);
     };
 
     const splitBlock = () => {
       e.preventDefault();
-      const beforeCursor = editableDiv.textContent?.slice(0, range?.startOffset) || '';
-      const afterCursor = editableDiv.textContent?.slice(range?.startOffset) || '';
+      const [beforeCursor, afterCursor] = [
+        editableDiv.textContent?.slice(0, range?.startOffset) || '',
+        editableDiv.textContent?.slice(range?.startOffset) || ''
+      ];
       const newBlockId = `block-${Date.now()}`;
-
       updateBlocks(blocks => [
-        ...blocks.slice(0, currentBlockIndex),
+        ...blocks.slice(0, currentIndex),
         { ...currentBlock, content: beforeCursor },
         { id: newBlockId, content: afterCursor },
-        ...blocks.slice(currentBlockIndex + 1)
+        ...blocks.slice(currentIndex + 1)
       ]);
-      
       setIsEditingBlock(newBlockId);
-      focusBlock(newBlockId, true);
+      focusBlock(newBlockId, 0);
     };
 
     const mergeBlocks = () => {
-      if (!sel || !range || !sel.isCollapsed || textBlocks.length <= 1) return;
-    
-      const currentBlockIndex = textBlocks.findIndex(block => block.id === blockId);
-      const previousBlockIndex = currentBlockIndex > 0 ? currentBlockIndex - 1 : 0;
-      const previousBlock = textBlocks[previousBlockIndex];
-      const isAtStart = range.startOffset === 0;
-    
-      if (isAtStart && previousBlock) {
-        e.preventDefault();
-        const combinedContent = `${previousBlock.content}${currentBlock.content}`;
-    
-        updateBlocks(blocks => {
-          const updatedBlocks = [...blocks];
-          updatedBlocks[previousBlockIndex] = { 
-            ...previousBlock, 
-            content: combinedContent 
-          };
-          updatedBlocks.splice(currentBlockIndex, 1);
-          return updatedBlocks;
-        });
-  
-        setIsEditingBlock(previousBlock.id);
-        queueMicrotask(() => {
-          const previousBlockDiv = editableRefs.current[previousBlock.id];
-          if (previousBlockDiv) {
-            const sel = window.getSelection();
-            const range = document.createRange();
-            const textNode = previousBlockDiv.firstChild || previousBlockDiv;
-            const cursorPosition = previousBlock.content.length;
-            
-            range.setStart(textNode, cursorPosition);
-            range.collapse(true);
-            sel?.removeAllRanges();
-            sel?.addRange(range);
-            previousBlockDiv.focus();
-          }
-        });
-      }
+      if (!sel?.isCollapsed || currentIndex === 0) return;
+      e.preventDefault();
+      const prevBlock = textBlocks[currentIndex - 1];
+      const cursorPosition = prevBlock.content.length;
+      updateBlocks(blocks => {
+        const updatedBlocks = [...blocks];
+        updatedBlocks[currentIndex - 1] = { 
+          ...prevBlock, 
+          content: prevBlock.content + currentBlock.content 
+        };
+        updatedBlocks.splice(currentIndex, 1);
+        return updatedBlocks;
+      });
+      setIsEditingBlock(prevBlock.id);
+      focusBlock(prevBlock.id, cursorPosition);
     };
 
-    const isAtStart = !range || range.startOffset === 0 || editableDiv.textContent?.trim() === '';
-    const isAtEnd = !range || range.startOffset === editableDiv.textContent?.length || editableDiv.textContent?.trim() === '';
-
-    if (e.key === 'ArrowUp' && isAtStart) navigate('up');
-    else if (e.key === 'ArrowDown' && isAtEnd) navigate('down');
-    else if (e.key === 'Enter' && !e.shiftKey) splitBlock();
-    else if (e.key === 'Backspace') mergeBlocks();
+    actions[e.key as keyof typeof actions]?.();
   }, [textBlocks, updateBlocks, focusBlock]);
 
   const renderBlock = useCallback((block: TextBlock) => {
@@ -181,7 +143,7 @@ export const Editor: React.FC<{ content: string; onContentChange: (content: stri
             });
           }
         }}
-        onKeyDown={(e) => isCurrentBlock && handleBlockNavigation(e, block.id)}
+        onKeyDown={e => isEditingBlock === block.id && handleBlockAction(e, block.id)}
         onClick={() => setIsEditingBlock(block.id)}
         className={`w-full focus:outline-none text-[15px] leading-[1.5] py-0 whitespace-pre-wrap break-words ${
           !block.content ? 'empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400' : ''
@@ -190,18 +152,23 @@ export const Editor: React.FC<{ content: string; onContentChange: (content: stri
         {isCurrentBlock ? block.content : block.content || '\u200B'}
       </div>
     );
-  }, [isEditingBlock, updateBlocks, handleBlockNavigation]);
-
-  const renderedBlocks = useMemo(() => textBlocks.map(renderBlock), [textBlocks, renderBlock]);
+  }, [isEditingBlock, updateBlocks, handleBlockAction]);
 
   return (
     <div className="absolute top-0 w-[650px] mx-auto mt-8 mb-32">
       <div
         ref={previewRef}
         className="relative w-full rounded-t-lg z-10 p-12"
-        onClick={handleContainerClick}
+        onClick={e => {
+          if (e.target === previewRef.current && (!textBlocks.length || textBlocks[textBlocks.length - 1].content.trim())) {
+            const newBlock = { id: `block-${Date.now()}`, content: '' };
+            updateBlocks(blocks => [...blocks, newBlock]);
+            setIsEditingBlock(newBlock.id);
+            focusBlock(newBlock.id);
+          }
+        }}
       >
-        {renderedBlocks}
+        {useMemo(() => textBlocks.map(renderBlock), [textBlocks, renderBlock])}
       </div>
     </div>
   );
