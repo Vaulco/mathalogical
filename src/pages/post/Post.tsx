@@ -31,6 +31,7 @@ useEffect(() => {
     user?.email && allowedEmail?.includes(user.email), 
     [user, allowedEmail]
   );
+  
 
   // Initial document state
   const [doc, setDoc] = useState<Document>(DEFAULT_DOC);
@@ -38,7 +39,14 @@ useEffect(() => {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // Mutations
-  const updatePost = useMutation(api.posts.update);
+  const updatePost = useMutation(api.posts.update); useEffect(() => {
+    console.log('Current User:', user);
+    console.log('Post Data:', postData);
+    console.log('Is Initial Load:', isInitialLoad);
+    console.log('Allowed Email:', allowedEmail);
+    console.log('Document Access:', documentWithAccess);
+    console.log('Users with Access:', usersWithAccess);
+  }, [user, postData, isInitialLoad, allowedEmail, documentWithAccess, usersWithAccess]);
   const createPost = useMutation(api.posts.create);
 
   // Combined effect for initial data loading and document creation
