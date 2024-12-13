@@ -26,6 +26,17 @@ export default function Post() {
     user?.email && allowedEmail?.includes(user.email), 
     [user, allowedEmail]
   );
+  const isAuthenticated = useMemo(() => {
+    if (!user || !documentWithAccess || usersWithAccess === undefined) {
+      return false;
+    }
+
+    if (documentWithAccess.accessType === 'private') {
+      return usersWithAccess.some(accessUser => accessUser?._id === user._id);
+    }
+
+    return true;
+  }, [user, documentWithAccess, usersWithAccess]);
 
   const [doc, setDoc] = useState<Document>(DEFAULT_DOC);
   const [initialContent, setInitialContent] = useState<Document>(DEFAULT_DOC);
@@ -92,8 +103,9 @@ export default function Post() {
       <div className="w-full h-[calc(100%-44px)] bottom-0 border-gray-300 bg-[#f9f9f9] bg-opacity-0 fixed editor-container overflow-x-auto flex justify-center items-center">
         <div className="px-10 w-full flex justify-center items-center">
           <Editor 
-            content={doc.content} 
-            onContentChange={content => setDoc(d => ({ ...d, content }))} 
+            content={postData?.content || ''} 
+            onContentChange={content => setDoc(d => ({ ...d, content }))}
+            isAuthenticated={isAuthenticated} 
           />
         </div>
       </div>
@@ -105,6 +117,7 @@ export default function Post() {
           onFocus={e => e.target.select()}
           onBlur={e => setDoc(d => ({ ...d, title: e.target.value.trim() || DEFAULT_DOC.title }))}
           className="absolute left-4 max-w-[165px] text-[15px] bg-transparent outline-none"
+          disabled={!isAuthenticated}
         />
         <div className="flex items-center gap-1 mr-3">
           <TimeAgo timestamp={postData?.updatedAt} />

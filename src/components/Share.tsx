@@ -80,9 +80,11 @@ export default function Share({ postId }: { postId: string }) {
       setState$({ error: (error as Error).message });
     }
   };
+  
+  const allowedEmail = useQuery(api.users.getAllowedEmail);
+  const isAllowedUser = currentUser && allowedEmail && currentUser.email === allowedEmail;
 
-  if (!currentUser || currentUser.email !== useQuery(api.users.getAllowedEmail)) return null;
-
+  if (!isAllowedUser) return null;
   const renderUserListItem = (u: User, showControls = true) => (
     <div className="flex items-center hover:bg-[#f3f3f3] px-3 py-1 rounded-xl cursor-pointer">
       <img src={u.image} alt={u.name || 'User'} className="w-8 border rounded-full mr-3" />
