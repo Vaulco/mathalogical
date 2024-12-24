@@ -2,31 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
-div::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, and newer versions of Edge */
-  }
-  
-  p::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, and newer versions of Edge */
-  }
-  
-  div {
-    font-size: 15px;
-  }
-  h1::-webkit-scrollbar {
-  display: none;
-  }
-  
-  ::selection {
-    background-color: #e5e7eb; /* Light blue */
-    color: #6b7280; /* Dark gray */
-  }
-  
-  ::-moz-selection {
-    background-color: #e5e7eb; /* Light blue */
-    color: #6b7280; /* Dark gray */
-  }
-  .shady {
-    box-shadow: rgba(15, 15, 15, 0.05) 0px 0px 0px 1px, rgba(15, 15, 15, 0.1) 0px 3px 6px, rgba(15, 15, 15, 0.2) 0px 9px 24px;
-  }
-  
+::selection {
+  background-color: #bad3ed;
+}
+
+::-moz-selection {
+  background-color: #bad3ed;
+}

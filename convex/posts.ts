@@ -2,7 +2,6 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
 const MAX_CHUNK_SIZE = Math.floor(1 * 1024 * 1024 / 100);
-type AccessType = 'public' | 'private';
 
 const getChunkedContent = (content: string) => {
   const chunks: string[] = [];
@@ -31,39 +30,42 @@ export const get = query({
       ctx.db.query("posts").withIndex("by_postId", q => q.eq("postId", postId)).collect()
     ]);
     
-    return posts.length ? {
-      title: posts[0].title || "Untitled Document",
+    if (!posts.length) return null;
+
+    // Get the first non-empty title or use the first post's title
+    const title = posts.find(p => p.title && p.title.trim())?.title || posts[0].title;
+    
+    return {
+      title,  // Remove the "New page" fallback here
       content: posts.sort((a, b) => a.part - b.part).map(p => p.content).join(""),
       updatedAt: Math.max(...posts.map(p => p.updatedAt)),
       postId,
-      accessType: posts[0].accessType,
       accessUsers: posts[0].accessUsers,
-    } : null;
+    };
   }
 });
 
 const handleDocumentParts = async (ctx: any, postId: string, title: string, content: string, identity: any, existingParts: any[]) => {
   const extractedUserId = identity.subject.split('|')[0];
   const accessUsers = Array.from(new Set([
-    ...(process.env.ALLOWED_EMAIL && identity.email === process.env.ALLOWED_EMAIL ? [] : []),
-    extractedUserId
+    ...(process.env.ALLOWED_EMAIL && identity.email === process.env.ALLOWED_EMAIL ? [] : [extractedUserId])
   ]));
 
   if (!content.trim()) {
-    if (!existingParts.length) {
-      await ctx.db.insert("posts", {
-        postId, part: 0, title: title || 'Untitled Document',
-        content: '', createdAt: Date.now(), updatedAt: Date.now(),
-        accessType: "private" as AccessType, accessUsers
-      });
-    } else {
-      await Promise.all(existingParts.map(part => 
-        ctx.db.patch(part._id, { 
-          title: title || 'Untitled Document', 
+    await (existingParts.length 
+      ? Promise.all(existingParts.map(part => ctx.db.patch(part._id, { 
+          title, // Remove the 'New page' fallback
           updatedAt: Date.now() 
-        })
-      ));
-    }
+        })))
+      : ctx.db.insert("posts", {
+          postId, 
+          part: 0, 
+          title,  // Remove the 'New page' fallback
+          content: '', 
+          createdAt: Date.now(), 
+          updatedAt: Date.now(),
+          accessUsers
+        }));
     return;
   }
 
@@ -75,7 +77,6 @@ const handleDocumentParts = async (ctx: any, postId: string, title: string, cont
         postId, part: i,
         title: i === 0 ? title : `${title} (part ${i + 1})`,
         content: chunk, createdAt: Date.now(), updatedAt: Date.now(),
-        accessType: "private" as AccessType,
         accessUsers: i === 0 ? accessUsers : existingParts[i]?.accessUsers || [],
       };
       return existingPart 
@@ -117,10 +118,10 @@ export const create = mutation({
       .withIndex("by_postId", q => q.eq("postId", args.postId))
       .collect();
 
-    if (!existingParts.length) {
-      await handleDocumentParts(ctx, args.postId, args.title, args.content, identity, []);
-      return { success: true };
-    }
+      if (!existingParts.length) {
+        await handleDocumentParts(ctx, args.postId, "New page", args.content, identity, []);
+        return { success: true };
+      }
 
     if (existingParts.some(part => part.content.trim() !== '')) {
       throw new Error("Document already exists");
@@ -132,17 +133,12 @@ export const create = mutation({
 });
 
 export const updateDocumentAccess = mutation({
-  args: {
-    postId: v.string(),
-    accessType: v.union(v.literal('public'), v.literal('private')),
-    users: v.array(v.string()),
-  },
-  handler: async (ctx, { postId, accessType, users }) => {
+  args: { postId: v.string(), users: v.array(v.string()) },
+  handler: async (ctx, { postId, users }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
     const extractedUserId = identity.subject.split('|')[0];
-    
     const parts = await ctx.db.query("posts")
       .withIndex("by_postId", q => q.eq("postId", postId))
       .collect();
@@ -157,7 +153,7 @@ export const updateDocumentAccess = mutation({
       : existingUsers;
 
     await Promise.all(parts.map(part => 
-      ctx.db.patch(part._id, { accessType, accessUsers: newUsers })
+      ctx.db.patch(part._id, { accessUsers: newUsers })
     ));
     return { success: true };
   }
@@ -179,5 +175,44 @@ export const getUsersWithDocumentAccess = query({
             )
         )).filter(Boolean)
       : [];
+  }
+});
+
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+    
+    const extractedUserId = identity.subject.split('|')[0];
+    const isAdmin = process.env.ALLOWED_EMAIL && identity.email === process.env.ALLOWED_EMAIL;
+    
+    // Get all unique postIds first to avoid duplicates from chunked posts
+    const allPosts = await ctx.db
+      .query("posts")
+      .withIndex("by_postId")
+      .collect();
+
+    // Group posts by postId and only include those the user has access to
+    const uniquePosts = Array.from(
+      allPosts.reduce((map, post) => {
+        if (!map.has(post.postId) && 
+            (isAdmin || post.accessUsers.includes(extractedUserId))) {
+          // Use the first part of each post (part 0) as the main record
+          if (post.part === 0) {
+            map.set(post.postId, {
+              postId: post.postId,
+              title: post.title,
+              createdAt: post.createdAt,
+              updatedAt: post.updatedAt,
+              accessUsers: post.accessUsers
+            });
+          }
+        }
+        return map;
+      }, new Map())
+    ).map(([_, post]) => post);
+
+    return uniquePosts;
   }
 });

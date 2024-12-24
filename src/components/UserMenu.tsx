@@ -5,14 +5,11 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useNavigate } from 'react-router-dom';
 import { nanoid } from 'nanoid';
 
-
 interface UserMenuProps {
   newpost?: boolean;
-  settings?: boolean;
-  help?: boolean;
 }
 
-export function UserMenu({ newpost, settings, help }: UserMenuProps) {
+export function UserMenu({ newpost}: UserMenuProps) {
   const navigate = useNavigate();
   const user = useQuery(api.users.viewer);
   const { signIn, signOut } = useAuthActions();
@@ -76,10 +73,8 @@ export function UserMenu({ newpost, settings, help }: UserMenuProps) {
           
           <Authenticated>
             {newpost && isAllowedToCreatePost && <MenuItem onClick={handleNewPost}>New Post</MenuItem>}
-            {settings && <MenuItem>Settings</MenuItem>}
           </Authenticated>
           
-          {help && <MenuItem>Help</MenuItem>}
           
           <Authenticated>
             <MenuItem 
