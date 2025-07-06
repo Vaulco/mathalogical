@@ -68,7 +68,7 @@ export function UserMenu({ newpost}: UserMenuProps) {
       {isOpen && (
         <div ref={menuRef} className="absolute right-0 mt-2 w-44 bg-[#ffffff]  rounded-md  shady overflow-hidden z-50">
           <Unauthenticated>
-            <MenuItem onClick={() => { signIn("github"); setIsOpen(false); }}>Login</MenuItem>
+            <MenuItem onClick={() => { signIn("google"); setIsOpen(false); }}>Login</MenuItem>
           </Unauthenticated>
           
           <Authenticated>
